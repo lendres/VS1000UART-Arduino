@@ -1,0 +1,21 @@
+################################
+# Class
+################################
+BlinkBase	KEYWORD1
+
+
+################################
+# Functions
+################################
+setMinMaxReadingValues	KEYWORD2
+
+
+################################
+# Enums
+################################
+LEVEL	LITERAL1
+LEVEL0	LITERAL2
+
+
+MODE	LITERAL1
+ALWAYSON	LITERAL2
