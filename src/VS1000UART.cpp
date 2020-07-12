@@ -58,18 +58,6 @@ int VS1000UART::readLine(void)
 
 size_t VS1000UART::write(uint8_t character)
 {
-	// Anything printed to Soundboard object will be split to both the sound card and debug streams.  Saves
-	// having to print everything twice in debug code.
-	if (_debugStream)
-	{
-		if (!_writing)
-		{
-			_debugStream->print(F("---> "));
-			_writing = true;
-		}
-		_debugStream->write(character);
-	}
-
 	return _chipStream->write(character);
 }
 
@@ -78,11 +66,11 @@ bool VS1000UART::reset(void)
 	// Do a hard reset by bringing the reset pin low then read out the output lines.
 	digitalWrite(_resetPin, LOW);
 	pinMode(_resetPin, OUTPUT);
-	delay(10);
+	delay(15);
 	pinMode(_resetPin, INPUT);
 
 	// Give a bit of time to boot up.
-	delay(1000);
+	delay(1500);
 
 	// Eat new line.
 	readLine();
@@ -96,7 +84,8 @@ bool VS1000UART::reset(void)
 	readLine();
 
 	#ifdef DEBUG
-		Serial.println(_lineBuffer); // Date and name
+		// Date and name.
+		Serial.println(_lineBuffer);
 	#endif
 
 	if (!strstr(_lineBuffer, "Adafruit FX Sound Board"))
@@ -112,7 +101,7 @@ bool VS1000UART::reset(void)
 	return true;
 }
 
-uint8_t VS1000UART::listFiles(void)
+uint8_t VS1000UART::listFiles()
 {
 	while (_chipStream->available())
 	{
@@ -137,16 +126,15 @@ uint8_t VS1000UART::listFiles(void)
 		_fileSizes[_numberOfFiles] = 0;
 		for (uint8_t i = 0; i < 16; i++)
 		{
-			uint8_t c = _lineBuffer[12 + i];
+			char character = _lineBuffer[12 + i];
 
-			if (c > '9' || c < '0')
+			if (!isdigit(character))
 			{
 				break;
 			}
 
-			_fileSizes[_numberOfFiles] = 10;
-
-			_fileSizes[_numberOfFiles] += c - '0';
+			_fileSizes[_numberOfFiles] *= 10;
+			_fileSizes[_numberOfFiles] += atoi(&character);
 		}
 
 		// Now that we are done with the work, we increment the counter.  Don't do this sooner as it is used to index the other arrays.
@@ -162,29 +150,29 @@ uint8_t VS1000UART::listFiles(void)
 	return _numberOfFiles;
 }
 
-char* VS1000UART::fileName(uint8_t n)
+char* VS1000UART::fileName(uint8_t fileNumber)
 {
 	// Make sure the parameter is within bounds.
-	if (n >= _numberOfFiles)
+	if (fileNumber >= _numberOfFiles)
 	{
 		return NULL;
 	}
 
-	return _fileNames[n];
+	return _fileNames[fileNumber];
 }
 
-uint32_t VS1000UART::fileSize(uint8_t n)
+uint32_t VS1000UART::fileSize(uint8_t fileNumber)
 {
 	// Make sure the parameter is within bounds.
-	if (n >= _numberOfFiles)
+	if (fileNumber >= _numberOfFiles)
 	{
 		return 0;
 	}
 
-	return _fileSizes[n];
+	return _fileSizes[fileNumber];
 }
 
-bool VS1000UART::playTrack(uint8_t n)
+bool VS1000UART::playTrack(uint8_t trackNumber)
 {
 	while (_chipStream->available())
 	{
@@ -192,17 +180,11 @@ bool VS1000UART::playTrack(uint8_t n)
 	}
 
 	_chipStream->print("#");
-	_chipStream->println(n);
+	_chipStream->println(trackNumber);
 
 	// Eat return.
 	readLine();
-
 	readLine();
-
-	#ifdef DEBUG
-		Serial.print("<---");
-		Serial.println(_lineBuffer);
-	#endif
 
 	// Check we got "play" back.
 	if (strstr(_lineBuffer, "play") == 0)
@@ -213,12 +195,7 @@ bool VS1000UART::playTrack(uint8_t n)
 	// Check the # is correct.
 	int playing = atoi(_lineBuffer + 5);
 
-	#ifdef DEBUG
-		Serial.print("# = ");
-		Serial.println(playing);
-	#endif
-
-	if (n != playing)
+	if (trackNumber != playing)
 	{
 		return false;
 	}
@@ -238,20 +215,9 @@ bool VS1000UART::playTrack(char* name)
 
 	// Eat return.
 	readLine();
-
-	#ifdef DEBUG
-		Serial.print("\n\r<--- ");
-		Serial.println(_lineBuffer);
-	#endif
-
 	readLine();
 
-	#ifdef DEBUG
-		Serial.print("\n\r<--- ");
-		Serial.println(_lineBuffer);
-	#endif
-
-	// check we got "play" back
+	// Check we got "play" back.
 	if (strstr(_lineBuffer, "play") == 0)
 	{
 		return false;
@@ -291,17 +257,22 @@ uint8_t VS1000UART::volumeDown()
 
 uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 {
-	if (_volumeLevel > level)
+	// Calculate new volume from level and size of increment per level.
+	uint8_t volume = level * VOLUMEINCREMENT;
+
+	// If we need to turn volume down.
+	if (_volumeLevel > volume)
 	{
-		while (_volumeLevel >= level)
+		while (_volumeLevel >= volume)
 		{
 			volumeDown();
 		}
 	}
 
-	if (_volumeLevel < level)
+	// If we need to turn volume up.
+	if (_volumeLevel < volume)
 	{
-		while (_volumeLevel <= level)
+		while (_volumeLevel <= volume)
 		{
 			volumeUp();
 		}
@@ -310,10 +281,10 @@ uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 	return _volumeLevel;
 }
 
-uint8_t VS1000UART::seekVolume(const char* direction, VOLUMELEVEL level)
-{
+// uint8_t VS1000UART::seekVolume(const char* direction, VOLUMELEVEL level)
+// {
 
-}
+// }
 
 bool VS1000UART::pause()
 {

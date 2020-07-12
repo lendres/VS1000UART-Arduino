@@ -32,6 +32,8 @@
 		user would be prompted to enter the name or number.  This did not work.  Entering "#" or "P" would lock the interface.  Instead,
 		the command and name/number had to be entered on a single line, e.g. "#7".
 		- Likely related to error in reading line return character.
+	- Fixed inconsistencies in user interface output and input.
+	- Added "F()" macro to all constant strings in "println" functions to reduce amount of dynamic memory used.
 */
 
 #include <SoftwareSerial.h>
@@ -50,20 +52,23 @@
 // You can also monitor the ACT pin for when audio is playing.
 
 // We'll be using software serial.
-SoftwareSerial softwareSerial = SoftwareSerial(SFX_TX, SFX_RX);
+SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
 
-// Pass the software serial to Adafruit_soundboard, the second argument is the debug port
-// (not used really) and the third arg is the reset pin.
-VS1000UART vsUart = VS1000UART(&softwareSerial, NULL, SFX_RST);
+// Pass the software serial to the audio class, the second argument is the debug port (not used really) and the third arg is the reset pin.
+VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, NULL, SFX_RST);
+
+// Variable to store text sent by user.
+#define BUFFERSIZE 20
+char 			_lineBuffer[BUFFERSIZE];
 
 void setup()
 {
 	Serial.begin(115200);
 
 	// Software serial at 9600 baud.
-	softwareSerial.begin(9600);
+	_softwareSerial.begin(9600);
 
-	if (!vsUart.reset())
+	if (!_vsUart.reset())
 	{
 		Serial.println("VS1000 failed to reset.");
 
@@ -87,41 +92,37 @@ void loop()
 
 char getCommand()
 {
-	flushInput();
+	Serial.println();
+	Serial.println(F("What would you like to do?"));
+	Serial.println(F("[R] - Reset"));
+	Serial.println(F("[+] - Volume up"));
+	Serial.println(F("[-] - Volume down"));
+	Serial.println(F("[V] - Set volume level"));
+	Serial.println(F("[L] - List files"));
+	Serial.println(F("[P] - Play by file name"));
+	Serial.println(F("[#] - Play by file number"));
+	Serial.println(F("[=] - Pause playing"));
+	Serial.println(F("[>] - Resume playing"));
+	Serial.println(F("[Q] - Stop playing"));
+	Serial.println(F("[T] - Play time status"));
+	Serial.println(F("> "));
 
-	Serial.println("");
-	Serial.println("What would you like to do?");
-	Serial.println("[R] - Reset");
-	Serial.println("[+] - Volume up");
-	Serial.println("[-] - Volume down");
-	Serial.println("[L] - List files");
-	Serial.println("[P] - Play by file name");
-	Serial.println("[#] - Play by file number");
-	Serial.println("[=] - Pause playing");
-	Serial.println("[>] - Unpause playing");
-	Serial.println("[Q] - Stop playing");
-	Serial.println("[T] - Play time status");
-	Serial.println("> ");
-
-	// Get one character.
-	char command = readBlocking();
-
-	// Eat the return character.
-	readBlocking();
+	// Read the response.  We will only use the first letter, read the line to clear everything sent (like the line return).
+	readLine();
 
 	#ifdef DEBUGOUTPUT
-		Serial.print("Input read: ");
-		if (command == '\n')
+		Serial.print(F("Input read: "));
+		if (_lineBuffer[0] == '\n')
 		{
-			Serial.println("Line return");
+			Serial.println(F("Line return"));
 		}
 		else
 		{
-			Serial.println(command);
+			Serial.println(_lineBuffer[0]);
 		}
 	#endif
 
-	return command;
+	return _lineBuffer[0];
 }
 
 void runCommand(char command)
@@ -130,139 +131,182 @@ void runCommand(char command)
 	{
 		case 'R':
 		{
-			Serial.println("");
-			Serial.println("Restarting...");
-			if (vsUart.reset())
+			Serial.println(F(""));
+			Serial.println(F("Restarting..."));
+			if (_vsUart.reset())
 			{
-				Serial.println("Audio restarted.");
+				Serial.println(F("Audio restarted."));
 			}
 			else
 			{
-				Serial.println("Reset failed.");
+				Serial.println(F("Reset failed."));
 			}
 			break;
 		}
 
 		case 'L':
 		{
-			uint8_t files = vsUart.listFiles();
+			uint8_t numberOfFiles = _vsUart.listFiles();
 
 			Serial.println();
-			Serial.println("File Listing");
-			Serial.println("========================");
-			Serial.print("Found ");
-			Serial.print(files);
-			Serial.println(" files");
-			for (uint8_t f = 0; f < files; f++)
+			Serial.println(F("File Listing"));
+			Serial.println(F("========================"));
+			Serial.print(F("Found "));
+			Serial.print(numberOfFiles);
+			Serial.println(F(" files"));
+			for (uint8_t i = 0; i < numberOfFiles; i++)
 			{
-				Serial.print(f);
-				Serial.print("\tname: ");
-				Serial.print(vsUart.fileName(f));
-				Serial.print("\tsize: ");
-				Serial.println(vsUart.fileSize(f));
+				Serial.print(i);
+				Serial.print(F("\tname: "));
+				Serial.print(_vsUart.fileName(i));
+				Serial.print(F("\tsize: "));
+				Serial.println(_vsUart.fileSize(i));
 			}
-			Serial.println("========================");
+			Serial.println(F("========================"));
 			break;
 		}
 
 		case '#':
 		{
-			Serial.print("Enter track #");
-			uint8_t n = readNumber();
+			Serial.println(F("Enter track #"));
+			Serial.println(F("> "));
 
-			Serial.print("\nPlaying track #");
-			Serial.println(n);
-			if (!vsUart.playTrack((uint8_t)n))
+			uint8_t trackNumber = readNumber();
+
+			Serial.print(F("Playing track #"));
+			Serial.println(trackNumber);
+			if (!_vsUart.playTrack((uint8_t)trackNumber))
 			{
-				Serial.println("Failed to play track.");
+				Serial.println(F("Failed to play track."));
 			}
 			break;
 		}
 
 		case 'P':
 		{
-			Serial.print("Enter track name (full 12 character name) >");
-			char name[20];
-			readLine(name, 20);
+			Serial.println(F("Enter track name (full 12 character name)"));
+			Serial.println(F("> "));
+			readLine();
 
-			Serial.print("\nPlaying track \"");
-			Serial.print(name);
-			Serial.print("\"");
-			if (!vsUart.playTrack(name))
+			Serial.print(F("Playing track \""));
+			Serial.print(_lineBuffer);
+			Serial.println("\"");
+			if (!_vsUart.playTrack(_lineBuffer))
 			{
-				Serial.println("Failed to play track.");
+				Serial.println(F("Failed to play track."));
 			}
 			break;
 		}
 
 		case '+':
 		{
-			Serial.println("Volume up...");
-			uint16_t volumeReturned = vsUart.volumeUp();
+			Serial.println(F("Volume up."));
+			uint16_t volumeReturned = _vsUart.volumeUp();
 			reportVolumeResult(volumeReturned);
 			break;
 		}
 
 		case '-':
 		{
-			Serial.println("Volume down...");
-			uint16_t volumeReturned = vsUart.volumeDown();
+			Serial.println(F("Volume down."));
+			uint16_t volumeReturned = _vsUart.volumeDown();
 			reportVolumeResult(volumeReturned);
+			break;
+		}
+
+		case 'V':
+		{
+			Serial.println(F("Enter volume level (0-10)."));
+			Serial.println(F("> "));
+			uint8_t volumeLevel = readNumber();
+
+			if (volumeLevel < 0 || volumeLevel > 10)
+			{
+				Serial.println(F("Invalid entry."));
+			}
+			else
+			{
+				uint8_t newVolume = _vsUart.setVolume((VS1000UART::VOLUMELEVEL)volumeLevel);
+				if (newVolume)
+				{
+					Serial.print(F("Volume level: "));
+					Serial.println(volumeLevel);
+					Serial.print(F("Volume setting: "));
+					Serial.println(newVolume);
+				}
+				else
+				{
+					Serial.println(F("Failed to set volume."));
+				}
+			}
+			
 			break;
 		}
 
 		case '=':
 		{
-			Serial.println("Pausing...");
-			if (!vsUart.pause())
+			if (_vsUart.pause())
 			{
-				Serial.println("Failed to pause");
+				Serial.println(F("Paused."));
+			}
+			else
+			{
+				Serial.println(F("Failed to pause."));
 			}
 			break;
 		}
 
 		case '>':
 		{
-			Serial.println("Unpausing...");
-			if (!vsUart.unpause())
+			if (_vsUart.unpause())
 			{
-				Serial.println("Failed to unpause");
+				Serial.println(F("Play resumed."));
+			}
+			else
+			{
+				Serial.println(F("Failed to resume."));
 			}
 			break;
 		}
 
-		case '1':
+		case 'Q':
 		{
-			Serial.println("Stopping...");
-			if (!vsUart.stop())
+			if (_vsUart.stop())
 			{
-				Serial.println("Failed to stop");
+				Serial.println(F("Play stopped."));
+			}
+			else
+			{
+				Serial.println(F("Failed to stop play."));
 			}
 			break;
 		}
 
 		case 'T':
 		{
-			Serial.print("Track time: ");
-			uint32_t current;
-			uint32_t total;
-			if (!vsUart.trackTime(&current, &total))
+			uint32_t current	= 0;
+			uint32_t total		= 0;
+			if (_vsUart.trackTime(&current, &total))
 			{
-				Serial.println("Failed to query");
+				Serial.print(F("Track time: "));
+				Serial.print(current);
+				Serial.println(F(" seconds"));
 			}
-			Serial.print(current);
-			Serial.println(" seconds");
+			else
+			{
+				Serial.println(F("Track time query failed."));
+			}
 			break;
 		}
 
 		case 'S':
 		{
-			Serial.print("Track size (bytes remaining/total): ");
-			uint32_t remain;
-			uint32_t total;
-			if (!vsUart.trackSize(&remain, &total))
+			Serial.print(F("Track size (bytes remaining/total): "));
+			uint32_t remain = 0;
+			uint32_t total = 0;
+			if (!_vsUart.trackSize(&remain, &total))
 			{
-				Serial.println("Failed to query");
+				Serial.println(F("Failed to query"));
 			}
 			Serial.print(remain);
 			Serial.print("/");
@@ -272,26 +316,9 @@ void runCommand(char command)
 
 		default:
 		{
-			Serial.println("Invalid entry, try again.");
+			Serial.println(F("Invalid entry, try again."));
 			break;
 		}
-	}
-}
-
-void flushInput()
-{
-	// Read all available serial input to flush pending data.
-	uint16_t timeoutloop = 0;
-	while (timeoutloop++ < 40)
-	{
-		while (softwareSerial.available())
-		{
-			softwareSerial.read();
-
-			// If char was received reset the timer.
-			timeoutloop = 0;
-		}
-		delay(1);
 	}
 }
 
@@ -325,13 +352,14 @@ uint16_t readNumber()
 	while (isdigit(characterRead))
 	{
 		// Another digit was read, so move the decimal point and add in the new digit.
-		x = x * 10 + atoi(&characterRead);
+		x				= x * 10 + atoi(&characterRead);
+		characterRead	= readBlocking();
 	}
 
 	return x;
 }
 
-uint8_t readLine(char* buffer, uint8_t bufferSize)
+uint8_t readLine()
 {
 	// Index into the buffer.
 	uint16_t index = 0;
@@ -339,7 +367,7 @@ uint8_t readLine(char* buffer, uint8_t bufferSize)
 	while (true)
 	{
 		// Ensure we don't over run the size of the buffer.
-		if (index > bufferSize)
+		if (index > BUFFERSIZE)
 		{
 			// If we fill up the buffer, break the loop and allow the function to exit.
 			break;
@@ -369,13 +397,13 @@ uint8_t readLine(char* buffer, uint8_t bufferSize)
 			}
 
 			// Insert character at the end and advance the index.
-			buffer[index] = characterRead;
+			_lineBuffer[index] = characterRead;
 			index++;
 		}
 	}
 
 	// Null term at the end of the string.  The index was already advanced in loop.
-	buffer[index] = 0;
+	_lineBuffer[index] = 0;
 	return index;
 }
 
@@ -385,11 +413,11 @@ void reportVolumeResult(uint8_t volumeReturned)
 	// change.  This also helps shorten main user interface switch statement and make it more readable.
 	if (volumeReturned == 0)
 	{
-		Serial.println("Failed to change volume.");
+		Serial.println(F("Failed to change volume."));
 	}
 	else
 	{
-		Serial.print("Volume: ");
+		Serial.print(F("Volume: "));
 		Serial.println(volumeReturned);
 	}
 }
