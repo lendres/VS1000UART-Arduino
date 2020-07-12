@@ -65,8 +65,9 @@ void setup()
 {
 	Serial.begin(115200);
 
-	// Software serial at 9600 baud.
+	// Software serial at 9600 baud.  Must call "begin" on serial stream before VS1000UART.
 	_softwareSerial.begin(9600);
+	_vsUart.begin();
 
 	if (!_vsUart.reset())
 	{
@@ -110,18 +111,6 @@ char getCommand()
 	// Read the response.  We will only use the first letter, read the line to clear everything sent (like the line return).
 	readLine();
 
-	#ifdef DEBUGOUTPUT
-		Serial.print(F("Input read: "));
-		if (_lineBuffer[0] == '\n')
-		{
-			Serial.println(F("Line return"));
-		}
-		else
-		{
-			Serial.println(_lineBuffer[0]);
-		}
-	#endif
-
 	return _lineBuffer[0];
 }
 
@@ -148,27 +137,37 @@ void runCommand(char command)
 		{
 			uint8_t numberOfFiles = _vsUart.listFiles();
 
-			Serial.println();
-			Serial.println(F("File Listing"));
-			Serial.println(F("========================"));
-			Serial.print(F("Found "));
-			Serial.print(numberOfFiles);
-			Serial.println(F(" files"));
-			for (uint8_t i = 0; i < numberOfFiles; i++)
+			if (numberOfFiles > 0)
 			{
-				Serial.print(i);
-				Serial.print(F("\tname: "));
-				Serial.print(_vsUart.fileName(i));
-				Serial.print(F("\tsize: "));
-				Serial.println(_vsUart.fileSize(i));
+				Serial.println();
+				Serial.println(F("File Listing"));
+				Serial.println(F("========================"));
+				Serial.print(F("Found "));
+				Serial.print(numberOfFiles);
+				Serial.println(F(" files"));
+				for (uint8_t i = 0; i < numberOfFiles; i++)
+				{
+					Serial.print(i);
+					Serial.print(F("\tname: "));
+					Serial.print(_vsUart.fileName(i));
+					Serial.print(F("\tsize: "));
+					Serial.println(_vsUart.fileSize(i));
+				}
+				Serial.println(F("========================"));
 			}
-			Serial.println(F("========================"));
+			else
+			{
+				Serial.println(F("No files found."));
+				Serial.println(F("  - Stop play before listing files."));
+				Serial.println(F("  - Ensure files have been loaded."));
+			}
+			
 			break;
 		}
 
 		case '#':
 		{
-			Serial.println(F("Enter track #"));
+			Serial.println(F("Enter track #:"));
 			Serial.println(F("> "));
 
 			uint8_t trackNumber = readNumber();
@@ -184,7 +183,7 @@ void runCommand(char command)
 
 		case 'P':
 		{
-			Serial.println(F("Enter track name (full 12 character name)"));
+			Serial.println(F("Enter track name (full 12 character name):"));
 			Serial.println(F("> "));
 			readLine();
 
@@ -245,7 +244,7 @@ void runCommand(char command)
 
 		case '=':
 		{
-			if (_vsUart.pause())
+			if (_vsUart.pausePlay())
 			{
 				Serial.println(F("Paused."));
 			}
@@ -258,7 +257,7 @@ void runCommand(char command)
 
 		case '>':
 		{
-			if (_vsUart.unpause())
+			if (_vsUart.resumePlay())
 			{
 				Serial.println(F("Play resumed."));
 			}
@@ -271,7 +270,7 @@ void runCommand(char command)
 
 		case 'Q':
 		{
-			if (_vsUart.stop())
+			if (_vsUart.stopPlay())
 			{
 				Serial.println(F("Play stopped."));
 			}

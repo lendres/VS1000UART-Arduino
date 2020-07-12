@@ -34,12 +34,20 @@
 VS1000UART::VS1000UART(Stream* chipStream, Stream* debugStream, int8_t resetPin) :
 	_chipStream(chipStream),
 	_debugStream(debugStream),
-	_resetPin(resetPin)
+	_resetPin(resetPin),
+	_writing(false),
+	_numberOfFiles(0),
+	_persistentVolume(false),
+	_memoryAddress(0)
 {
 	_chipStream->setTimeout(500);
+}
 
-	_writing	= false;
-	_numberOfFiles		= 0;
+void VS1000UART::begin()
+{
+	// If we are not restoring the volume from memory, we need to initialize the "_volume" variable before a call
+	// to "setVolume."  To do that, we will make a call to volume up and that will set the variable as part of the call.
+	volumeUp();
 }
 
 int VS1000UART::readLine(void)
@@ -54,11 +62,6 @@ int VS1000UART::readLine(void)
 
 	// The number of characters placed in the buffer (0 means no valid data found).
 	return x;
-}
-
-size_t VS1000UART::write(uint8_t character)
-{
-	return _chipStream->write(character);
 }
 
 bool VS1000UART::reset(void)
@@ -286,7 +289,7 @@ uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 
 // }
 
-bool VS1000UART::pause()
+bool VS1000UART::pausePlay()
 {
 	while (_chipStream->available())
 	{
@@ -308,7 +311,7 @@ bool VS1000UART::pause()
 	return true;
 }
 
-bool VS1000UART::unpause()
+bool VS1000UART::resumePlay()
 {
 	while (_chipStream->available())
 	{
@@ -329,7 +332,7 @@ bool VS1000UART::unpause()
 	return true;
 }
 
-bool VS1000UART::stop()
+bool VS1000UART::stopPlay()
 {
 	while (_chipStream->available())
 	{

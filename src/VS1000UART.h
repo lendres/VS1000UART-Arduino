@@ -62,7 +62,7 @@
 #define VOLUMEINCREMENT		MAXVOLUME / 10
 
 /// \brief Class that stores the state and functions of the soundboard object.
-class VS1000UART : public Print
+class VS1000UART
 {
 	public:
 		/// \brief Enumeration for setting absolute volume level.
@@ -87,6 +87,9 @@ class VS1000UART : public Print
 		/// \param debugStream Pointer to the debug stream.
 		/// \param resetPin Reset pin.
 		VS1000UART(Stream* chipStream, Stream* debugStream, int8_t resetPin);
+
+		/// \brief Run in the "Setup" function.
+		void begin();
 
 		/// \brief Hard reset of the chip.
 		/// \return Returns the output lines.
@@ -134,15 +137,15 @@ class VS1000UART : public Print
 
 		/// \brief Pauses track.
 		/// \return Returns if pausing was successful.
-		bool pause();
+		bool pausePlay();
 
 		/// \brief Unpauses track.
 		/// \return Returns if unpausing was successful.
-		bool unpause();
+		bool resumePlay();
 
 		/// \brief Stops track.
 		/// \return Returns if stopping was successful.
-		bool stop();
+		bool stopPlay();
 
 		/// \brief Returns the track time.
 		/// \param current Buffer with the current track time.
@@ -157,9 +160,6 @@ class VS1000UART : public Print
 		bool trackSize(uint32_t* current, uint32_t* total);
 
 	private:
-		// Required by the inheritance of the Print class.
-		virtual size_t write(uint8_t character);
-
 		// uint8_t seekVolume(const char* direction, VOLUMELEVEL level);
 
 	private:
