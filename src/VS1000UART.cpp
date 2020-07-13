@@ -31,9 +31,8 @@
 
 #include "VS1000UART.h"
 
-VS1000UART::VS1000UART(Stream* chipStream, Stream* debugStream, int8_t resetPin) :
+VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 	_chipStream(chipStream),
-	_debugStream(debugStream),
 	_resetPin(resetPin),
 	_writing(false),
 	_numberOfFiles(0),
@@ -43,25 +42,20 @@ VS1000UART::VS1000UART(Stream* chipStream, Stream* debugStream, int8_t resetPin)
 	_chipStream->setTimeout(500);
 }
 
-void VS1000UART::begin()
+VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress) :
+	_chipStream(chipStream),
+	_resetPin(resetPin),
+	_writing(false),
+	_numberOfFiles(0),
+	_persistentVolume(true),
+	_memoryAddress(memoryAddress)
 {
-	// If we are not restoring the volume from memory, we need to initialize the "_volume" variable before a call
-	// to "setVolume."  To do that, we will make a call to volume up and that will set the variable as part of the call.
-	volumeUp();
+	_chipStream->setTimeout(500);
 }
 
-int VS1000UART::readLine(void)
+void VS1000UART::begin()
 {
-	int x 			= _chipStream->readBytesUntil('\n', _lineBuffer, LINE_BUFFER_SIZE);
-	_lineBuffer[x]	= 0;
-
-	if (_chipStream->peek() == '\r')
-	{
-		_chipStream->read();
-	}
-
-	// The number of characters placed in the buffer (0 means no valid data found).
-	return x;
+	synchVolumes();
 }
 
 bool VS1000UART::reset(void)
@@ -69,17 +63,18 @@ bool VS1000UART::reset(void)
 	// Do a hard reset by bringing the reset pin low then read out the output lines.
 	digitalWrite(_resetPin, LOW);
 	pinMode(_resetPin, OUTPUT);
-	delay(15);
+	delay(10);
 	pinMode(_resetPin, INPUT);
 
 	// Give a bit of time to boot up.
-	delay(1500);
+	delay(1000);
 
 	// Eat new line.
 	readLine();
 
 	#ifdef DEBUG
 		// Date and name.
+		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
 
@@ -88,18 +83,33 @@ bool VS1000UART::reset(void)
 
 	#ifdef DEBUG
 		// Date and name.
+		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
 
 	if (!strstr(_lineBuffer, "Adafruit FX Sound Board"))
 	{
-		return false;
+		//return false;
 	}
 
 	delay(250);
 
 	readLine();
+	#ifdef DEBUG
+		// Date and name.
+		Serial.print("Audio chip: ");
+		Serial.println(_lineBuffer);
+	#endif
+
 	readLine();
+	#ifdef DEBUG
+		// Date and name.
+		Serial.print("Audio chip: ");
+		Serial.println(_lineBuffer);
+	#endif
+
+	// After restarting the chip, the volumes need to by synchronized.
+	synchVolumes();
 
 	return true;
 }
@@ -230,64 +240,66 @@ bool VS1000UART::playTrack(char* name)
 
 uint8_t VS1000UART::volumeUp()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->println("+");
-	readLine();
-
-	_volumeLevel = atoi(_lineBuffer);
-
-	return _volumeLevel;
+	volumeUpWithoutSaving();
+	saveVolumeToMemory();
+	return _volume;
 }
 
 uint8_t VS1000UART::volumeDown()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->println("-");
-	readLine();
-
-	_volumeLevel = atoi(_lineBuffer);
-
-	return _volumeLevel;
+	volumeDownWithoutSaving();
+	saveVolumeToMemory();
+	return _volume;
 }
 
 uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 {
+Serial.println();
+Serial.println("SETVOLUME");
+Serial.print("level: ");
+Serial.println(level);
 	// Calculate new volume from level and size of increment per level.
 	uint8_t volume = level * VOLUMEINCREMENT;
-
+Serial.print("volume: ");
+Serial.println(volume);
+Serial.print("_volume: ");
+Serial.println(_volume);
 	// If we need to turn volume down.
-	if (_volumeLevel > volume)
+	if (_volume > volume)
 	{
-		while (_volumeLevel >= volume)
+		while (_volume >= volume)
 		{
-			volumeDown();
+			volumeDownWithoutSaving();
 		}
 	}
 
 	// If we need to turn volume up.
-	if (_volumeLevel < volume)
+	if (_volume < volume)
 	{
-		while (_volumeLevel <= volume)
+		while (_volume <= volume)
 		{
-			volumeUp();
+Serial.print("_volume loop: ");
+Serial.println(_volume);
+			volumeUpWithoutSaving();
 		}
 	}
-
-	return _volumeLevel;
+Serial.print("_volume: ");
+Serial.println(_volume);
+	saveVolumeToMemory();
+	return _volume;
 }
 
-// uint8_t VS1000UART::seekVolume(const char* direction, VOLUMELEVEL level)
-// {
-
-// }
+VS1000UART::VOLUMELEVEL VS1000UART::getVolumeLevel()
+{
+Serial.println();
+Serial.println("GETVOLUMELEVEL");
+Serial.print("volume calculation: ");
+Serial.println(_volume);	
+Serial.println(10.0 * _volume);
+Serial.println(10.0 * _volume / MAXVOLUME);
+Serial.println((VOLUMELEVEL)(10.0 * _volume / MAXVOLUME));
+	return (VOLUMELEVEL)(10.0 * _volume / MAXVOLUME);
+}
 
 bool VS1000UART::pausePlay()
 {
@@ -390,4 +402,79 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 	*total	= atol(_lineBuffer + 11);
 
 	return true;
+}
+
+void VS1000UART::synchVolumes()
+{
+	// We need to initialize the "_volume" variable before a call to "setVolume."  To do that, we will make a call to volume up
+	// and that will set the variable as part of the call.
+	volumeUpWithoutSaving();
+Serial.println("SYNCH VOLUMES");
+Serial.print("_volume: ");
+Serial.println(_volume);
+
+	if (_persistentVolume)
+	{
+		uint8_t volume = EEPROM.readInt(_memoryAddress);
+Serial.print("volume: ");
+Serial.println(volume);
+		setVolume((VOLUMELEVEL)(10.0 * volume / MAXVOLUME));
+	}
+}
+
+int VS1000UART::readLine()
+{
+	int x 			= _chipStream->readBytesUntil('\n', _lineBuffer, LINE_BUFFER_SIZE);
+	_lineBuffer[x]	= 0;
+
+	// Check for when the new line is followed by a carriage return.
+	if (_chipStream->peek() == '\r')
+	{
+		_chipStream->read();
+	}
+
+	// The number of characters placed in the buffer (0 means no valid data found).
+	return x;
+}
+
+uint8_t VS1000UART::volumeUpWithoutSaving()
+{
+	while (_chipStream->available())
+	{
+		_chipStream->read();
+	}
+
+	_chipStream->println("+");
+
+	readVolumeFromChip();
+}
+
+uint8_t VS1000UART::volumeDownWithoutSaving()
+{
+	while (_chipStream->available())
+	{
+		_chipStream->read();
+	}
+
+	_chipStream->println("-");
+
+	readVolumeFromChip();
+}
+
+void VS1000UART::readVolumeFromChip()
+{
+	// Read the serial stream from the chip.
+	readLine();
+
+	// Convert the text to a numerical volume.
+	_volume = atoi(_lineBuffer);
+}
+
+void VS1000UART::saveVolumeToMemory()
+{
+	// When we have volume saving enabled, we save it to the flash memory on the Arduino.
+	if (_persistentVolume)
+	{
+		EEPROM.writeInt(_memoryAddress, _volume);
+	}
 }

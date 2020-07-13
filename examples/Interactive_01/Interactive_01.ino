@@ -55,7 +55,7 @@
 SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
 
 // Pass the software serial to the audio class, the second argument is the debug port (not used really) and the third arg is the reset pin.
-VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, NULL, SFX_RST);
+VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST);
 
 // Variable to store text sent by user.
 #define BUFFERSIZE 20
@@ -63,23 +63,23 @@ char 			_lineBuffer[BUFFERSIZE];
 
 void setup()
 {
-	Serial.begin(115200);
+	Serial.begin(9600);
 
 	// Software serial at 9600 baud.  Must call "begin" on serial stream before VS1000UART.
 	_softwareSerial.begin(9600);
 	_vsUart.begin();
 
-	if (!_vsUart.reset())
-	{
-		Serial.println("VS1000 failed to reset.");
+	// if (!_vsUart.reset())
+	// {
+	// 	Serial.println("VS1000 failed to reset.");
 
-		// Something went wrong, so we freeze.
-		while (1)
-		{
-		}
-	}
+	// 	// Something went wrong, so we freeze.
+	// 	while (1)
+	// 	{
+	// 	}
+	// }
 
-	Serial.println("SFX board found");
+	Serial.println("Audio ready.");
 }
 
 void loop()

@@ -84,9 +84,14 @@ class VS1000UART
 	public:
 		/// \brief Constructor.
 		/// \param chipStream Pointer to the Serial stream.
-		/// \param debugStream Pointer to the debug stream.
 		/// \param resetPin Reset pin.
-		VS1000UART(Stream* chipStream, Stream* debugStream, int8_t resetPin);
+		VS1000UART(Stream* chipStream, int8_t resetPin);
+
+		/// \brief Constructor.
+		/// \param chipStream Pointer to the Serial stream.
+		/// \param resetPin Reset pin.
+		/// \param memoryAddress Memory address to save volume level.
+		VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress);
 
 		/// \brief Run in the "Setup" function.
 		void begin();
@@ -94,10 +99,6 @@ class VS1000UART
 		/// \brief Hard reset of the chip.
 		/// \return Returns the output lines.
 		bool reset();
-
-		/// \brief Reads a line from the stream.
-		/// \return The number of characters placed in the buffer (0 means no valid data found).
-		int readLine();
 
 		/// \brief Query the board for the # of files and names/sizes.
 		/// \return Returns the information about the files.
@@ -124,6 +125,10 @@ class VS1000UART
 		/// \brief Set the volume to a specific level.
 		/// \return Returns the current volume.
 		uint8_t setVolume(VOLUMELEVEL level);
+
+		/// \brief Gets the volume as a VOLUMELEVEL.
+		/// \return Returns the volume as the closest VOLUMELEVEL.
+		VOLUMELEVEL getVolumeLevel();
 
 		/// \brief Play the specified track.
 		/// \param n track id.
@@ -160,14 +165,28 @@ class VS1000UART
 		bool trackSize(uint32_t* current, uint32_t* total);
 
 	private:
-		// uint8_t seekVolume(const char* direction, VOLUMELEVEL level);
+		/// \brief Synchs the volume on the chip and the class's stored volume.
+		void synchVolumes();
+		
+		/// \brief Reads a line from the stream.
+		/// \return The number of characters placed in the buffer (0 means no valid data found).
+		int readLine();
+
+		/// \brief Raises the volume without saving the value.
+		/// \return Returns the current volume.
+		uint8_t volumeUpWithoutSaving();
+
+		/// \brief Lowers the volume without saving the value.
+		/// \return Returns the current volume.
+		uint8_t volumeDownWithoutSaving();
+
+		/// \brief Read the volume level from the chip.
+		void readVolumeFromChip();
+
+		/// \brief Stores the volume.
+		void saveVolumeToMemory();
 
 	private:
-		#ifdef DEBUG
-		// Host, e.g. Serial.
-		Stream*		_debugStream;
-		#endif
-
 		// Stream for the chip/board, e.g. SoftwareSerial or Serial1.
 		Stream*		_chipStream;
 
@@ -184,7 +203,7 @@ class VS1000UART
 		// Volume.
 		bool		_persistentVolume;
 		int			_memoryAddress;
-		uint8_t		_volumeLevel;
+		uint8_t		_volume;
 };
 
 #endif
