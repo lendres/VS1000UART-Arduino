@@ -36,6 +36,17 @@
 	- Added "F()" macro to all constant strings in "println" functions to reduce amount of dynamic memory used.
 */
 
+/*
+	Usage:
+	When the sketch starts, the last volume is read from the flash memory on the Arduino and displayed.
+	When prompted, pressing enter will increment the volume level and save it to the flash memory.
+
+	To demonstrate the volume is persistent, change the volume, then restart the Arduino.  The restart can be done in one of several ways:
+		- For a hard restart, remove power, then re-power the Arduino.
+		- The serial monitor can be closed and re-opened.
+		- When prompted, enter 'r' from the serial monitor.
+*/
+
 #include <SoftwareSerial.h>
 #include "VS1000UART.h"
 
@@ -57,10 +68,7 @@ SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
 // Pass the software serial to the audio class, the second argument is the debug port (not used really) and the third arg is the reset pin.
 VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST, 0);
 
-// Variable to store text sent by user.
-#define BUFFERSIZE 20
-char 			_lineBuffer[BUFFERSIZE];
-
+// A 'function' to reset the Arduino.  It is a function pointer to the first memory address.  Causing execution to start from there is a restart.
 void(* resetFunc)(void) = 0;
 
 void setup()
@@ -94,11 +102,28 @@ void loop()
 	Serial.print("Current volume level: ");
 	Serial.println(volumeLevel);
 
+	Serial.println("Press enter to continue or enter 'r' to reset the Arduino.");
+	while (!Serial.available())
+	{
+		delay(10);
+	}
+	char characterRead = Serial.read();
+	while (Serial.available())
+	{
+		// Read all remaining data on the serial.  Use a slight delay to give the data time to transfer.
+		Serial.read();
+		delay(10);
+	}
+	if (characterRead == 'r')
+	{
+		resetFunc();
+	}
+
 	// Increment volume level and display it.
 	volumeLevel = (VS1000UART::VOLUMELEVEL)(volumeLevel + 1);
 	if (volumeLevel >= VS1000UART::VOLUME10)
 	{
-		volumeLevel = VS1000UART::VOLUME1;
+		volumeLevel = VS1000UART::VOLUME0;
 	}
 
 	// Set the new volume level.  This will also save it to memory.
@@ -108,14 +133,4 @@ void loop()
 	_vsUart.setVolume(volumeLevel);
 	Serial.print("New volume level: ");
 	Serial.println(_vsUart.getVolumeLevel());
-
-	Serial.println("Press enter to continue.");
-	while (!Serial.available())
-	{
-	}
-	while (Serial.available())
-	{
-		char characterRead = Serial.read();
-		delay(10);
-	}
 }

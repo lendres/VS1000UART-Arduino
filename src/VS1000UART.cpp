@@ -73,7 +73,7 @@ bool VS1000UART::reset(void)
 	readLine();
 
 	#ifdef DEBUG
-		// Date and name.
+		Serial.println();
 		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
@@ -82,7 +82,6 @@ bool VS1000UART::reset(void)
 	readLine();
 
 	#ifdef DEBUG
-		// Date and name.
 		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
@@ -96,14 +95,12 @@ bool VS1000UART::reset(void)
 
 	readLine();
 	#ifdef DEBUG
-		// Date and name.
 		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
 
 	readLine();
 	#ifdef DEBUG
-		// Date and name.
 		Serial.print("Audio chip: ");
 		Serial.println(_lineBuffer);
 	#endif
@@ -254,20 +251,13 @@ uint8_t VS1000UART::volumeDown()
 
 uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 {
-Serial.println();
-Serial.println("SETVOLUME");
-Serial.print("level: ");
-Serial.println(level);
 	// Calculate new volume from level and size of increment per level.
 	uint8_t volume = level * VOLUMEINCREMENT;
-Serial.print("volume: ");
-Serial.println(volume);
-Serial.print("_volume: ");
-Serial.println(_volume);
+
 	// If we need to turn volume down.
 	if (_volume > volume)
 	{
-		while (_volume >= volume)
+		while (_volume > volume)
 		{
 			volumeDownWithoutSaving();
 		}
@@ -276,29 +266,19 @@ Serial.println(_volume);
 	// If we need to turn volume up.
 	if (_volume < volume)
 	{
-		while (_volume <= volume)
+		while (_volume < volume)
 		{
-Serial.print("_volume loop: ");
-Serial.println(_volume);
 			volumeUpWithoutSaving();
 		}
 	}
-Serial.print("_volume: ");
-Serial.println(_volume);
+
 	saveVolumeToMemory();
 	return _volume;
 }
 
 VS1000UART::VOLUMELEVEL VS1000UART::getVolumeLevel()
 {
-Serial.println();
-Serial.println("GETVOLUMELEVEL");
-Serial.print("volume calculation: ");
-Serial.println(_volume);	
-Serial.println(10.0 * _volume);
-Serial.println(10.0 * _volume / MAXVOLUME);
-Serial.println((VOLUMELEVEL)(10.0 * _volume / MAXVOLUME));
-	return (VOLUMELEVEL)(10.0 * _volume / MAXVOLUME);
+	return calculateLevelFromVolume(_volume);
 }
 
 bool VS1000UART::pausePlay()
@@ -404,21 +384,22 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 	return true;
 }
 
+VS1000UART::VOLUMELEVEL VS1000UART::calculateLevelFromVolume(uint8_t volume)
+{
+	return (VOLUMELEVEL)(round(10.0 * volume / MAXVOLUME));
+}
+
 void VS1000UART::synchVolumes()
 {
 	// We need to initialize the "_volume" variable before a call to "setVolume."  To do that, we will make a call to volume up
-	// and that will set the variable as part of the call.
+	// and that will set the variable as part of the call.  Do not save the volume or we overwrite the value we are trying to restore.
 	volumeUpWithoutSaving();
-Serial.println("SYNCH VOLUMES");
-Serial.print("_volume: ");
-Serial.println(_volume);
 
 	if (_persistentVolume)
 	{
+		// Read the volume from memory.  Then calculate and set a new volume level.
 		uint8_t volume = EEPROM.readInt(_memoryAddress);
-Serial.print("volume: ");
-Serial.println(volume);
-		setVolume((VOLUMELEVEL)(10.0 * volume / MAXVOLUME));
+		setVolume(calculateLevelFromVolume(volume));
 	}
 }
 
@@ -437,27 +418,31 @@ int VS1000UART::readLine()
 	return x;
 }
 
-uint8_t VS1000UART::volumeUpWithoutSaving()
+void VS1000UART::volumeUpWithoutSaving()
 {
 	while (_chipStream->available())
 	{
 		_chipStream->read();
 	}
 
+	// Send the volume change command to the chip.
 	_chipStream->println("+");
 
+	// Reads the returned value from the chip and saves it.
 	readVolumeFromChip();
 }
 
-uint8_t VS1000UART::volumeDownWithoutSaving()
+void VS1000UART::volumeDownWithoutSaving()
 {
 	while (_chipStream->available())
 	{
 		_chipStream->read();
 	}
 
+	// Send the volume change command to the chip.
 	_chipStream->println("-");
 
+	// Reads the returned value from the chip and saves it.
 	readVolumeFromChip();
 }
 

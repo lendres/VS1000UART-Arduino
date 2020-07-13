@@ -65,7 +65,7 @@
 class VS1000UART
 {
 	public:
-		/// \brief Enumeration for setting absolute volume level.
+		/// \brief Enumeration for setting absolute volume level.  Level 0 is completely off, level 10 is maximum volume.
 		enum VOLUMELEVEL : uint8_t
 		{
 			VOLUME0,
@@ -165,20 +165,23 @@ class VS1000UART
 		bool trackSize(uint32_t* current, uint32_t* total);
 
 	private:
+		/// \brief Converts a volume to a volume level.
+		VOLUMELEVEL calculateLevelFromVolume(uint8_t volume);
+
 		/// \brief Synchs the volume on the chip and the class's stored volume.
 		void synchVolumes();
-		
+
 		/// \brief Reads a line from the stream.
 		/// \return The number of characters placed in the buffer (0 means no valid data found).
 		int readLine();
 
 		/// \brief Raises the volume without saving the value.
 		/// \return Returns the current volume.
-		uint8_t volumeUpWithoutSaving();
+		void volumeUpWithoutSaving();
 
 		/// \brief Lowers the volume without saving the value.
 		/// \return Returns the current volume.
-		uint8_t volumeDownWithoutSaving();
+		void volumeDownWithoutSaving();
 
 		/// \brief Read the volume level from the chip.
 		void readVolumeFromChip();
