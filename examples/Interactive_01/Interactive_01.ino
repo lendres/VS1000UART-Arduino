@@ -226,18 +226,11 @@ void runCommand(char command)
 			}
 			else
 			{
-				uint8_t newVolume = _vsUart.setVolumeLevel((VS1000UART::VOLUMELEVEL)volumeLevel);
-				if (newVolume)
-				{
-					Serial.print(F("Volume level: "));
-					Serial.println(volumeLevel);
-					Serial.print(F("Volume setting: "));
-					Serial.println(newVolume);
-				}
-				else
-				{
-					Serial.println(F("Failed to set volume."));
-				}
+				_vsUart.setVolumeLevel((VS1000UART::VOLUMELEVEL)volumeLevel);
+				Serial.print(F("Volume level: "));
+				Serial.println(volumeLevel);
+				Serial.print(F("Volume: "));
+				Serial.println(_vsUart.getVolume());
 			}
 			
 			break;
