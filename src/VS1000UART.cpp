@@ -339,8 +339,21 @@ VS1000UART::VOLUMELEVEL VS1000UART::setVolumeLevel(VOLUMELEVEL level)
 		level = _minimumLevel;
 	}
 
+
 	// Calculate new volume from level and size of increment per level.
 	uint8_t volume = (level - _minimumLevel) * _volumeIncrement + _minimumVolume;
+
+Serial.println();
+Serial.println("SET VOLUME LEVEL");
+
+Serial.print("level-minLevel: ");
+Serial.println(level - _minimumLevel);
+Serial.print("(level-minLevel)*increment: ");
+Serial.println((level - _minimumLevel) * _volumeIncrement);
+Serial.print("minVol: ");
+Serial.println(_minimumVolume);
+Serial.print("Volume: ");
+Serial.println(volume);
 
 	setVolume(volume);
 
