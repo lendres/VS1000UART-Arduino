@@ -34,8 +34,12 @@
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	_writing(false),
 	_numberOfFiles(0),
+	_minimumVolume(MINVOLUME),
+	_maximumVolume(MAXVOLUME),
+	_volumeIncrement(VOLUMEINCREMENT),
+	_minimumLevel(VOLUME0),
+	_maximumLevel(VOLUME10),
 	_persistentVolume(false),
 	_memoryAddress(0)
 {
@@ -45,16 +49,49 @@ VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	_writing(false),
 	_numberOfFiles(0),
+	_minimumVolume(MINVOLUME),
+	_maximumVolume(MAXVOLUME),
+	_volumeIncrement(VOLUMEINCREMENT),
+	_minimumLevel(VOLUME0),
+	_maximumLevel(VOLUME10),
 	_persistentVolume(true),
 	_memoryAddress(memoryAddress)
 {
 	_chipStream->setTimeout(500);
 }
 
+void VS1000UART::setMinimumVolume(uint8_t minimumVolume)
+{
+	_minimumVolume = minimumVolume;
+}
+
+void VS1000UART::setMaximumVolume(uint8_t maximumVolume)
+{
+	_maximumVolume = maximumVolume;
+}
+
+void VS1000UART::useLowerLevelOne(bool useLowerLevelOne)
+{
+	if (useLowerLevelOne)
+	{
+		_minimumLevel = VOLUME1;
+	}
+	else
+	{
+		_minimumLevel = VOLUME0;
+	}
+}
+
+void VS1000UART::setMaximumLevel(VOLUMELEVEL volumeLevel)
+{
+	_maximumLevel = volumeLevel;
+}
+
 void VS1000UART::begin()
 {
+	// Calculate volume increment based on volume and level settings.
+	_volumeIncrement = (_maximumVolume - _minimumVolume) / (_maximumLevel - _minimumLevel);
 	synchVolumes();
 }
 
@@ -74,7 +111,7 @@ bool VS1000UART::reset(void)
 
 	#ifdef DEBUG
 		Serial.println();
-		Serial.print("Audio chip: ");
+		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
@@ -82,7 +119,7 @@ bool VS1000UART::reset(void)
 	readLine();
 
 	#ifdef DEBUG
-		Serial.print("Audio chip: ");
+		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
@@ -95,13 +132,13 @@ bool VS1000UART::reset(void)
 
 	readLine();
 	#ifdef DEBUG
-		Serial.print("Audio chip: ");
+		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
 	readLine();
 	#ifdef DEBUG
-		Serial.print("Audio chip: ");
+		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
@@ -119,7 +156,7 @@ uint8_t VS1000UART::listFiles()
 	}
 
 	// 'L' for list.
-	_chipStream->println('L');
+	_chipStream->println(F("L"));
 
 	// Reset number of files.  The "_numberOfFiles" is used in the function to index in to the "_fileNames"
 	// and "_fileSizes" array.  Therefore, the number of filex must be incremented after all the other work is done
@@ -189,7 +226,7 @@ bool VS1000UART::playTrack(uint8_t trackNumber)
 		_chipStream->read();
 	}
 
-	_chipStream->print("#");
+	_chipStream->print(F("#"));
 	_chipStream->println(trackNumber);
 
 	// Eat return.
@@ -220,7 +257,7 @@ bool VS1000UART::playTrack(char* name)
 		_chipStream->read();
 	}
 
-	_chipStream->print("P");
+	_chipStream->print(F("P"));
 	_chipStream->println(name);
 
 	// Eat return.
@@ -249,11 +286,8 @@ uint8_t VS1000UART::volumeDown()
 	return _volume;
 }
 
-uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
+uint8_t VS1000UART::setVolume(uint8_t volume)
 {
-	// Calculate new volume from level and size of increment per level.
-	uint8_t volume = level * VOLUMEINCREMENT;
-
 	// If we need to turn volume down.
 	if (_volume > volume)
 	{
@@ -276,6 +310,60 @@ uint8_t VS1000UART::setVolume(VOLUMELEVEL level)
 	return _volume;
 }
 
+uint8_t VS1000UART::getVolume()
+{
+	return _volume;
+}
+
+VS1000UART::VOLUMELEVEL VS1000UART::volumeLevelUp()
+{
+	return setVolumeLevel((VOLUMELEVEL)(getVolumeLevel() + 1));
+}
+
+VS1000UART::VOLUMELEVEL VS1000UART::volumeLevelDown()
+{
+	return setVolumeLevel((VOLUMELEVEL)(getVolumeLevel() - 1));
+}
+
+VS1000UART::VOLUMELEVEL VS1000UART::setVolumeLevel(VOLUMELEVEL level)
+{
+	// Never go above the maximum level.
+	if (level > _maximumLevel)
+	{
+		level = _maximumLevel;
+	}
+
+	// Never go below the minimum level.
+	if (level < _minimumLevel)
+	{
+		level = _minimumLevel;
+	}
+
+	// Calculate new volume from level and size of increment per level.
+	uint8_t volume = (level - _minimumLevel) * _volumeIncrement + _minimumVolume;
+
+	setVolume(volume);
+
+	return level;
+}
+
+VS1000UART::VOLUMELEVEL VS1000UART::cycleVolumeLevel()
+{
+	VOLUMELEVEL level = getVolumeLevel();
+
+	if (level == _maximumLevel)
+	{
+		level = _minimumLevel;
+	}
+	else
+	{
+		level = (VOLUMELEVEL)(level + 1);
+	}
+	
+
+	return setVolumeLevel(level);
+}
+
 VS1000UART::VOLUMELEVEL VS1000UART::getVolumeLevel()
 {
 	return calculateLevelFromVolume(_volume);
@@ -288,7 +376,7 @@ bool VS1000UART::pausePlay()
 		_chipStream->read();
 	}
 
-	_chipStream->print("=");
+	_chipStream->print(F("="));
 
 	if (!_chipStream->readBytes(_lineBuffer, 1))
 	{
@@ -310,7 +398,7 @@ bool VS1000UART::resumePlay()
 		_chipStream->read();
 	}
 
-	_chipStream->print(">");
+	_chipStream->print(F(">"));
 	if (!_chipStream->readBytes(_lineBuffer, 1))
 	{
 		return false;
@@ -331,7 +419,7 @@ bool VS1000UART::stopPlay()
 		_chipStream->read();
 	}
 
-	_chipStream->print("q");
+	_chipStream->print(F("q"));
 	readLine();
 
 	if (_lineBuffer[0] != 'q')
@@ -349,7 +437,7 @@ bool VS1000UART::trackTime(uint32_t* current, uint32_t* total)
 		_chipStream->read();
 	}
 
-	_chipStream->print('t');
+	_chipStream->print(F("t"));
 	readLine();
 	
 	if (strlen(_lineBuffer) != 12)
@@ -370,7 +458,7 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 		_chipStream->read();
 	}
 
-	_chipStream->print('s');
+	_chipStream->print(F("s"));
 	readLine();
 
 	if (strlen(_lineBuffer) != 22)
@@ -386,7 +474,19 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 
 VS1000UART::VOLUMELEVEL VS1000UART::calculateLevelFromVolume(uint8_t volume)
 {
-	return (VOLUMELEVEL)(round(10.0 * volume / MAXVOLUME));
+Serial.println();
+Serial.println("CALCULATE LEVEL");
+Serial.print("Volume: ");
+Serial.println(_volume);
+Serial.print("max-min: ");
+Serial.println((float)_maximumLevel - _minimumLevel);
+Serial.print("max-min*vol: ");
+Serial.println(((float)_maximumLevel - _minimumLevel) * volume);
+Serial.print("vol max-min: ");
+Serial.println(_maximumVolume - _minimumVolume);
+Serial.print("Total: ");
+Serial.println(((float)_maximumLevel - _minimumLevel) * volume / (_maximumVolume - _minimumVolume));
+	return (VOLUMELEVEL)(round(((float)_maximumLevel - _minimumLevel) * volume / (_maximumVolume - _minimumVolume) + _minimumLevel));
 }
 
 void VS1000UART::synchVolumes()
@@ -399,7 +499,7 @@ void VS1000UART::synchVolumes()
 	{
 		// Read the volume from memory.  Then calculate and set a new volume level.
 		uint8_t volume = EEPROM.readInt(_memoryAddress);
-		setVolume(calculateLevelFromVolume(volume));
+		setVolumeLevel(calculateLevelFromVolume(volume));
 	}
 }
 
@@ -426,7 +526,7 @@ void VS1000UART::volumeUpWithoutSaving()
 	}
 
 	// Send the volume change command to the chip.
-	_chipStream->println("+");
+	_chipStream->println(F("+"));
 
 	// Reads the returned value from the chip and saves it.
 	readVolumeFromChip();
@@ -440,7 +540,7 @@ void VS1000UART::volumeDownWithoutSaving()
 	}
 
 	// Send the volume change command to the chip.
-	_chipStream->println("-");
+	_chipStream->println(F("-"));
 
 	// Reads the returned value from the chip and saves it.
 	readVolumeFromChip();

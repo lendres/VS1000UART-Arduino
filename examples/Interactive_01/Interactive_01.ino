@@ -219,7 +219,8 @@ void runCommand(char command)
 			Serial.println(F("> "));
 			uint8_t volumeLevel = readNumber();
 
-			if (volumeLevel < 0 || volumeLevel > 10)
+			// Make level is valid.  Must be between 0 and 10.  Variable is unsigned so it cannot be negative.
+			if (volumeLevel > 10)
 			{
 				Serial.println(F("Invalid entry."));
 			}

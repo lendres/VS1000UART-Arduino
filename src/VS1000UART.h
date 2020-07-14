@@ -52,7 +52,7 @@
 #include <Arduino.h>
 #include <EEPROMex.h>
 
-#define DEBUG 				1
+#define DEBUG
 
 #define LINE_BUFFER_SIZE 	80		//!< Size of the line buffer.
 #define MAXFILES 			25		//!< Max number of files.
@@ -81,6 +81,7 @@ class VS1000UART
 			VOLUME10
 		};
 
+	// Constructors.
 	public:
 		/// \brief Constructor.
 		/// \param chipStream Pointer to the Serial stream.
@@ -93,9 +94,28 @@ class VS1000UART
 		/// \param memoryAddress Memory address to save volume level.
 		VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress);
 
-		/// \brief Run in the "Setup" function.
+	// Functions to use in setup.
+	public:
+		/// \brief Sets a lower limit on the volume.  Useful to adjust the volume for a particular setup.
+		/// \parm minimumVolume The minimum volume level.
+		void setMinimumVolume(uint8_t minimumVolume);
+
+		/// \brief Sets an upper limit on the volume.  Useful to adjust to volume for a particular setup.
+		/// \parm maximumVolume The maximum volume level.
+		void setMaximumVolume(uint8_t maximumVolume);
+
+		/// \brief Sets which volume level is the minimum.
+		/// \param useLowerLevelOne If true, VOLUME1 is the lowest level.  If false, VOLUME0 is the lowest level.
+		void useLowerLevelOne(bool useLowerLevelOne);
+
+		/// \brief Sets the maximum level.  For example, if only 5 increments of volume are required, it can be adjusted here.
+		void setMaximumLevel(VOLUMELEVEL volumeLevel);
+
+		/// \brief Last call to this class for use in the "Setup" function.
 		void begin();
 
+	// Functions for controlling/interacting with the audio chip.
+	public:
 		/// \brief Hard reset of the chip.
 		/// \return Returns the output lines.
 		bool reset();
@@ -122,9 +142,29 @@ class VS1000UART
 		/// \return Returns the current volume.
 		uint8_t volumeDown();
 
+		/// \brief Sets the volume to a specified value.
+		/// \param volume The volume to set.
+		/// \return The new volume level.
+		uint8_t setVolume(uint8_t volume);
+
+		/// \brief Get the volume.
+		/// \returns Returns the current volume setting.
+		uint8_t getVolume();
+
+		/// \brief Raises the volume one level.
+		/// \return Returns the current volume.
+		VOLUMELEVEL volumeLevelUp();
+
+		/// \brief Lowers the volume one level
+		/// \return Returns the current volume.
+		VOLUMELEVEL volumeLevelDown();
+
 		/// \brief Set the volume to a specific level.
 		/// \return Returns the current volume.
-		uint8_t setVolume(VOLUMELEVEL level);
+		VOLUMELEVEL setVolumeLevel(VOLUMELEVEL level);
+
+		/// \brief Increases the volume level by one.  If the current level is the maximum, it resets to the lowest level.
+		VOLUMELEVEL cycleVolumeLevel();
 
 		/// \brief Gets the volume as a VOLUMELEVEL.
 		/// \return Returns the volume as the closest VOLUMELEVEL.
@@ -164,6 +204,7 @@ class VS1000UART
 		/// \return Returns how many bytes are remaining over the total track size.
 		bool trackSize(uint32_t* current, uint32_t* total);
 
+	// Support functions.
 	private:
 		/// \brief Converts a volume to a volume level.
 		VOLUMELEVEL calculateLevelFromVolume(uint8_t volume);
@@ -191,22 +232,25 @@ class VS1000UART
 
 	private:
 		// Stream for the chip/board, e.g. SoftwareSerial or Serial1.
-		Stream*		_chipStream;
+		Stream*			_chipStream;
 
-		int8_t		_resetPin;
-
-		char		_lineBuffer[LINE_BUFFER_SIZE];
-		bool		_writing;
+		int8_t			_resetPin;
+		char			_lineBuffer[LINE_BUFFER_SIZE];
 
 		// File name & size caching.
-		uint8_t		_numberOfFiles;
-		char		_fileNames[MAXFILES][12];
-		uint32_t	_fileSizes[MAXFILES];
+		uint8_t			_numberOfFiles;
+		char			_fileNames[MAXFILES][12];
+		uint32_t		_fileSizes[MAXFILES];
 
 		// Volume.
-		bool		_persistentVolume;
-		int			_memoryAddress;
-		uint8_t		_volume;
+		uint8_t			_minimumVolume;
+		uint8_t			_maximumVolume;
+		uint8_t			_volumeIncrement;
+		VOLUMELEVEL		_minimumLevel;
+		VOLUMELEVEL		_maximumLevel;
+		bool			_persistentVolume;
+		int				_memoryAddress;
+		uint8_t			_volume;
 };
 
 #endif
