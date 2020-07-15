@@ -32,10 +32,10 @@
 #define SFX_RST 4
 
 // We'll be using software serial.
-SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
+SoftwareSerial	_softwareSerial(SFX_TX, SFX_RX);
 
 // Pass the software serial to the audio class and the second argument is the reset pin number.
-VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST);
+VS1000UART 		_vsUart(&_softwareSerial, SFX_RST);
 
 void setup()
 {

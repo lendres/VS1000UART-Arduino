@@ -6,19 +6,19 @@
 	like the example output below.
 
 	Output:
-	Current volume: 0
+	Current volume: 90
 	Current volume level: 1
 
-	Current volume: 52
+	Current volume: 116
 	Current volume level: 2
 
-	Current volume: 102
+	Current volume: 140
 	Current volume level: 3
 
-	Current volume: 154
+	Current volume: 166
 	Current volume level: 4
 
-	Current volume: 204
+	Current volume: 190
 	Current volume level: 5
 */
 
@@ -51,6 +51,12 @@ void setup()
 
 	// Set the maximum level as 5.
 	_vsUart.setMaximumLevel(VS1000UART::VOLUME5);
+
+	// Set the minimum volume used.
+	_vsUart.setMinimumVolume(90);
+	
+	// Set the maximum volume used.
+	_vsUart.setMaximumVolume(190);
 
 	// Call begin on the VSUART1000 to run its start up.
 	_vsUart.begin();

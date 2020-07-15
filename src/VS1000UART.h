@@ -58,7 +58,7 @@
 #define MAXFILES 			25		//!< Max number of files.
 
 #define MINVOLUME			0
-#define MAXVOLUME			202
+#define MAXVOLUME			204
 #define VOLUMEINCREMENT		MAXVOLUME / 10
 
 /// \brief Class that stores the state and functions of the soundboard object.
