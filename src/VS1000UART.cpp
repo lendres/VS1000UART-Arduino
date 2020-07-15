@@ -92,6 +92,9 @@ void VS1000UART::begin()
 {
 	// Calculate volume increment based on volume and level settings.
 	_volumeIncrement = (_maximumVolume - _minimumVolume) / (_maximumLevel - _minimumLevel);
+Serial.println();
+Serial.print("volumeIncrement: ");
+Serial.println(_volumeIncrement);
 	synchVolumes();
 }
 
@@ -341,7 +344,7 @@ VS1000UART::VOLUMELEVEL VS1000UART::setVolumeLevel(VOLUMELEVEL level)
 
 
 	// Calculate new volume from level and size of increment per level.
-	uint8_t volume = (level - _minimumLevel) * _volumeIncrement + _minimumVolume;
+	uint8_t volume = round((level - _minimumLevel) * _volumeIncrement + _minimumVolume);
 
 	setVolume(volume);
 
@@ -475,7 +478,21 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 
 VS1000UART::VOLUMELEVEL VS1000UART::calculateLevelFromVolume(uint8_t volume)
 {
-	return (VOLUMELEVEL)(round(((float)_maximumLevel - _minimumLevel) * volume / (_maximumVolume - _minimumVolume) + _minimumLevel));
+// Serial.println();	
+// Serial.println("CALCULATE LEVEL");	
+// Serial.print("Volume: ");	
+// Serial.println(_volume);	
+// Serial.print("max-min: ");	
+// Serial.println((float)_maximumLevel - _minimumLevel);	
+// Serial.print("max-min*vol: ");	
+// Serial.println(((float)_maximumLevel - _minimumLevel) * volume);	
+// Serial.print("vol max-min: ");	
+// Serial.println(_maximumVolume - _minimumVolume);	
+// Serial.print("Total: ");	
+// Serial.println(((float)_maximumLevel - _minimumLevel) * volume / (_maximumVolume - _minimumVolume));
+
+//	return (VOLUMELEVEL)(round(((float)_maximumLevel - _minimumLevel) * volume / (_maximumVolume - _minimumVolume) + _minimumLevel));
+	return (VOLUMELEVEL)(round((volume - _minimumVolume) / _volumeIncrement + _minimumLevel));
 }
 
 void VS1000UART::synchVolumes()

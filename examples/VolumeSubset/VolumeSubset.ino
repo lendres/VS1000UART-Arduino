@@ -2,24 +2,7 @@
 	Demonstrates how to use a subset of the levels.
 
 	In this example, we set the lowest level to 1 and the highest to 5.  Then we cycle through all the levels and display the volumes and
-	volume levels.  The expected output is that the lowest volume (0) is level 1 and the highest volume is level 5.  It should appear something
-	like the example output below.
-
-	Output:
-	Current volume: 0
-	Current volume level: 1
-
-	Current volume: 50
-	Current volume level: 2
-
-	Current volume: 100
-	Current volume level: 3
-
-	Current volume: 150
-	Current volume level: 4
-
-	Current volume: 200
-	Current volume level: 5
+	volume levels.
 */
 
 #include <SoftwareSerial.h>
@@ -53,12 +36,11 @@ void setup()
 	// Software serial at 9600 baud.  Must call "begin" on serial stream before VS1000UART.
 	_softwareSerial.begin(9600);
 
-	// Set up the levels we want to use.
-	// This sets the lowest level to 1 instead of 0.
-	_vsUart.useLowerLevelOne(true);
-
-	// Set the maximum level as 5.
-	_vsUart.setMaximumLevel(VS1000UART::VOLUME5);
+	// Set the minimum volume used.
+	_vsUart.setMinimumVolume(90);
+	
+	// Set the maximum volume used.
+	_vsUart.setMaximumVolume(190);
 
 	// Call begin on the VSUART1000 to run its start up.
 	_vsUart.begin();
@@ -68,13 +50,13 @@ void setup()
 	Serial.println("Audio ready.");
 
 	// The audio chip normally starts at the highest volume, let's start at the bottom and go up.
-	_vsUart.setVolumeLevel(VS1000UART::VOLUME1);
+	_vsUart.setVolumeLevel(VS1000UART::VOLUME0);
 }
 
 void loop()
 {
 	// Loop through all the levels and display the values.
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 11; i++)
 	{
 		// Blank line output on serial monitor for readability.
 		Serial.println();

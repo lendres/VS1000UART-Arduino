@@ -245,7 +245,7 @@ class VS1000UART
 		// Volume.
 		uint8_t			_minimumVolume;
 		uint8_t			_maximumVolume;
-		uint8_t			_volumeIncrement;
+		float			_volumeIncrement;
 		VOLUMELEVEL		_minimumLevel;
 		VOLUMELEVEL		_maximumLevel;
 		bool			_persistentVolume;
