@@ -32,19 +32,11 @@
 // Connect to the RST pin on the Sound Board.
 #define SFX_RST 4
 
-// Uncomment for additional output messages.
-#define DEBUGOUTPUT
-
-// You can also monitor the ACT pin for when audio is playing.
-
 // We'll be using software serial.
 SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
 
 // Pass the software serial to the audio class and the second argument is the reset pin number.
 VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST);
-
-// A 'function' to reset the Arduino.  It is a function pointer to the first memory address.  Causing execution to start from there is a restart.
-void(*reset)() = 0;
 
 void setup()
 {
@@ -84,6 +76,7 @@ void loop()
 		Serial.print("Current volume level: ");
 		Serial.println((uint8_t)(_vsUart.getVolumeLevel()));
 
+		// This will increment the volume level.  If the maximum level is reached, it will restart at the lowest.
 		_vsUart.cycleVolumeLevel();
 	}
 

@@ -1,8 +1,24 @@
 /*
 	Demonstrates how to use a subset of the levels.
 
-	In this example, we set the lowest level to 1 and the highest to 5.  Then we cycle through all the levels and display the volumes and
-	volume levels.
+	In this example, we set the lowest volume to 90 and the highest to 190.  Then we cycle through all the levels and display the volumes and
+	volume levels.  The output is expected to be similar to the example below.
+
+	Output:
+	Current volume: 90
+	Current volume level: 0
+
+	Current volume: 100
+	Current volume level: 1
+
+	...
+
+	Current volume: 180
+	Current volume level: 9
+
+	Current volume: 190
+	Current volume level: 10
+
 */
 
 #include <SoftwareSerial.h>
@@ -15,19 +31,11 @@
 // Connect to the RST pin on the Sound Board.
 #define SFX_RST 4
 
-// Uncomment for additional output messages.
-#define DEBUGOUTPUT
-
-// You can also monitor the ACT pin for when audio is playing.
-
 // We'll be using software serial.
 SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
 
 // Pass the software serial to the audio class and the second argument is the reset pin number.
 VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST);
-
-// A 'function' to reset the Arduino.  It is a function pointer to the first memory address.  Causing execution to start from there is a restart.
-void(*reset)() = 0;
 
 void setup()
 {
@@ -66,6 +74,7 @@ void loop()
 		Serial.print("Current volume level: ");
 		Serial.println((uint8_t)(_vsUart.getVolumeLevel()));
 
+		// This will increment the volume level.  If the maximum level is reached, it will restart at the lowest.
 		_vsUart.cycleVolumeLevel();
 	}
 
