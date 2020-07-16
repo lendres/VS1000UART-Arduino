@@ -69,15 +69,15 @@ void setup()
 	_softwareSerial.begin(9600);
 	_vsUart.begin();
 
-	// if (!_vsUart.reset())
-	// {
-	// 	Serial.println("VS1000 failed to reset.");
+	if (!_vsUart.reset())
+	{
+		Serial.println("VS1000 failed to reset.");
 
-	// 	// Something went wrong, so we freeze.
-	// 	while (1)
-	// 	{
-	// 	}
-	// }
+		// Something went wrong, so we freeze.
+		while (1)
+		{
+		}
+	}
 
 	Serial.println("Audio ready.");
 }
@@ -100,7 +100,7 @@ char getCommand()
 	Serial.println(F("[-] - Volume down"));
 	Serial.println(F("[V] - Set volume level"));
 	Serial.println(F("[L] - List files"));
-	Serial.println(F("[P] - Play by file name"));
+	Serial.println(F("[P] - Play by file name, 8.3-character uppercase name without the \".\""));
 	Serial.println(F("[#] - Play by file number"));
 	Serial.println(F("[=] - Pause playing"));
 	Serial.println(F("[>] - Resume playing"));
@@ -170,11 +170,11 @@ void runCommand(char command)
 			Serial.println(F("Enter track #:"));
 			Serial.println(F("> "));
 
-			uint8_t trackNumber = readNumber();
+			uint8_t fileNumber = readNumber();
 
 			Serial.print(F("Playing track #"));
-			Serial.println(trackNumber);
-			if (!_vsUart.playTrack((uint8_t)trackNumber))
+			Serial.println(fileNumber);
+			if (!_vsUart.playFile((uint8_t)fileNumber))
 			{
 				Serial.println(F("Failed to play track."));
 			}
@@ -190,7 +190,7 @@ void runCommand(char command)
 			Serial.print(F("Playing track \""));
 			Serial.print(_lineBuffer);
 			Serial.println("\"");
-			if (!_vsUart.playTrack(_lineBuffer))
+			if (!_vsUart.playFile(_lineBuffer))
 			{
 				Serial.println(F("Failed to play track."));
 			}
@@ -232,7 +232,6 @@ void runCommand(char command)
 				Serial.print(F("Volume: "));
 				Serial.println(_vsUart.getVolume());
 			}
-			
 			break;
 		}
 
@@ -279,7 +278,7 @@ void runCommand(char command)
 		{
 			uint32_t current	= 0;
 			uint32_t total		= 0;
-			if (_vsUart.trackTime(&current, &total))
+			if (_vsUart.playTime(&current, &total))
 			{
 				Serial.print(F("Track time: "));
 				Serial.print(current);
@@ -297,7 +296,7 @@ void runCommand(char command)
 			Serial.print(F("Track size (bytes remaining/total): "));
 			uint32_t remain = 0;
 			uint32_t total = 0;
-			if (!_vsUart.trackSize(&remain, &total))
+			if (!_vsUart.fileSize(&remain, &total))
 			{
 				Serial.println(F("Failed to query"));
 			}

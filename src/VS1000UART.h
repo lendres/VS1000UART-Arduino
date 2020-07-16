@@ -173,12 +173,12 @@ class VS1000UART
 		/// \brief Play the specified track.
 		/// \param n track id.
 		/// \return Returns true if the track was played.
-		bool playTrack(uint8_t n);
+		bool playFile(uint8_t fileNumber);
 
 		/// \brief Play the specified track.
 		/// \param name track name.
 		/// \return Returns true if the track was played.
-		bool playTrack(char* name);
+		bool playFile(char* fileName);
 
 		/// \brief Pauses track.
 		/// \return Returns if pausing was successful.
@@ -196,16 +196,24 @@ class VS1000UART
 		/// \param current Buffer with the current track time.
 		/// \param total Buffer with the total track time.
 		/// \return Returns the current track time.
-		bool trackTime(uint32_t* current, uint32_t* total);
+		bool playTime(uint32_t* current, uint32_t* total);
 
 		/// \brief Returns the track size.
 		/// \param current Buffer with the current track size.
 		/// \param total Buffer with the total track size.
 		/// \return Returns how many bytes are remaining over the total track size.
-		bool trackSize(uint32_t* current, uint32_t* total);
+		bool fileSize(uint32_t* current, uint32_t* total);
+
+		void continuousPlayMode();
 
 	// Support functions.
 	private:
+		/// \brief Send a command to the audio chip.
+		void sendCommand(const __FlashStringHelper* command);
+
+		/// \brief Read the response back from the audio chip and check it against the expected command.
+		bool checkCommandResult(char command);
+
 		/// \brief Converts a volume to a volume level.
 		VOLUMELEVEL calculateLevelFromVolume(uint8_t volume);
 

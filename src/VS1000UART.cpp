@@ -150,13 +150,7 @@ bool VS1000UART::reset(void)
 
 uint8_t VS1000UART::listFiles()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	// 'L' for list.
-	_chipStream->println(F("L"));
+	sendCommand(F("L\n"));
 
 	// Reset number of files.  The "_numberOfFiles" is used in the function to index in to the "_fileNames"
 	// and "_fileSizes" array.  Therefore, the number of filex must be incremented after all the other work is done
@@ -219,15 +213,10 @@ uint32_t VS1000UART::fileSize(uint8_t fileNumber)
 	return _fileSizes[fileNumber];
 }
 
-bool VS1000UART::playTrack(uint8_t trackNumber)
+bool VS1000UART::playFile(uint8_t fileNumber)
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->print(F("#"));
-	_chipStream->println(trackNumber);
+	sendCommand(F("#"));
+	_chipStream->println(fileNumber);
 
 	// Eat return.
 	readLine();
@@ -242,7 +231,7 @@ bool VS1000UART::playTrack(uint8_t trackNumber)
 	// Check the # is correct.
 	int playing = atoi(_lineBuffer + 5);
 
-	if (trackNumber != playing)
+	if (fileNumber != playing)
 	{
 		return false;
 	}
@@ -250,15 +239,10 @@ bool VS1000UART::playTrack(uint8_t trackNumber)
 	return true;
 }
 
-bool VS1000UART::playTrack(char* name)
+bool VS1000UART::playFile(char* fileName)
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->print(F("P"));
-	_chipStream->println(name);
+	sendCommand(F("P"));
+	_chipStream->println(fileName);
 
 	// Eat return.
 	readLine();
@@ -269,6 +253,7 @@ bool VS1000UART::playTrack(char* name)
 	{
 		return false;
 	}
+
 	return true;
 }
 
@@ -372,75 +357,30 @@ VS1000UART::VOLUMELEVEL VS1000UART::getVolumeLevel()
 
 bool VS1000UART::pausePlay()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
+	sendCommand(F("=\n"));
 
-	_chipStream->print(F("="));
-
-	if (!_chipStream->readBytes(_lineBuffer, 1))
-	{
-		return false;
-	}
-
-	if (_lineBuffer[0] != '=')
-	{
-		return false;
-	}
-
-	return true;
+	return checkCommandResult('=');
 }
 
 bool VS1000UART::resumePlay()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
+	sendCommand(F(">\n"));
 
-	_chipStream->print(F(">"));
-	if (!_chipStream->readBytes(_lineBuffer, 1))
-	{
-		return false;
-	}
-
-	if (_lineBuffer[0] != '>')
-	{
-		return false;
-	}
-	
-	return true;
+	return checkCommandResult('>');
 }
 
 bool VS1000UART::stopPlay()
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
+	sendCommand(F("q\n"));
 
-	_chipStream->print(F("q"));
-	readLine();
-
-	if (_lineBuffer[0] != 'q')
-	{
-		return false;
-	}
-
-	return true;
+	return checkCommandResult('q');
 }
 
-bool VS1000UART::trackTime(uint32_t* current, uint32_t* total)
+bool VS1000UART::playTime(uint32_t* current, uint32_t* total)
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->print(F("t"));
-	readLine();
+	sendCommand(F("t"));
 	
+	readLine();
 	if (strlen(_lineBuffer) != 12)
 	{
 		return false;
@@ -452,15 +392,9 @@ bool VS1000UART::trackTime(uint32_t* current, uint32_t* total)
 	return true;
 }
 
-bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
+bool VS1000UART::fileSize(uint32_t* remain, uint32_t* total)
 {
-	while (_chipStream->available())
-	{
-		_chipStream->read();
-	}
-
-	_chipStream->print(F("s"));
-	readLine();
+	sendCommand(F("s"));
 
 	if (strlen(_lineBuffer) != 22)
 	{
@@ -470,6 +404,33 @@ bool VS1000UART::trackSize(uint32_t* remain, uint32_t* total)
 	*remain	= atol(_lineBuffer);
 	*total	= atol(_lineBuffer + 11);
 
+	return true;
+}
+
+void VS1000UART::continuousPlayMode()
+{
+
+}
+
+void VS1000UART::sendCommand(const __FlashStringHelper* command)
+{
+	while (_chipStream->available())
+	{
+		_chipStream->read();
+	}
+
+	_chipStream->print(command);
+}
+
+bool VS1000UART::checkCommandResult(char command)
+{
+	// Read the response with "readLine" which returns the number of bytes read.  No bytes are read, then return false.
+	// This uses short-circuit logic, if the first part true, the second part doesn't execute, it goes straight to the return.
+	if (!readLine() || _lineBuffer[0] != command)
+	{
+		return false;
+	}
+	
 	return true;
 }
 
