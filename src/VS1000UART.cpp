@@ -34,7 +34,7 @@
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	_numberOfFiles(0),
+	// _numberOfFiles(0),
 	_minimumVolume(MINVOLUME),
 	_maximumVolume(MAXVOLUME),
 	_volumeIncrement(VOLUMEINCREMENT),
@@ -43,13 +43,12 @@ VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 	_persistentVolume(false),
 	_memoryAddress(0)
 {
-	_chipStream->setTimeout(500);
 }
 
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	_numberOfFiles(0),
+	// _numberOfFiles(0),
 	_minimumVolume(MINVOLUME),
 	_maximumVolume(MAXVOLUME),
 	_volumeIncrement(VOLUMEINCREMENT),
@@ -58,7 +57,6 @@ VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress) :
 	_persistentVolume(true),
 	_memoryAddress(memoryAddress)
 {
-	_chipStream->setTimeout(500);
 }
 
 void VS1000UART::setMinimumVolume(uint8_t minimumVolume)
@@ -90,17 +88,26 @@ void VS1000UART::setMaximumLevel(VOLUMELEVEL volumeLevel)
 
 void VS1000UART::begin()
 {
+	_chipStream->setTimeout(500);
+
+	// The reset pin is connected to Vcc.  By switching to input, we will let the reset be pulled to Vcc.
+	pinMode(_resetPin, INPUT);
+
 	// Calculate volume increment based on volume and level settings.
 	_volumeIncrement = ((float)_maximumVolume - _minimumVolume) / (_maximumLevel - _minimumLevel);
 	synchVolumes();
 }
 
-bool VS1000UART::reset(void)
+bool VS1000UART::reset()
 {
-	// Do a hard reset by bringing the reset pin low then read out the output lines.
-	digitalWrite(_resetPin, LOW);
+	// Reset by bringing the reset pin low.  First we have to switch the pin to output.  Then pull it low.
 	pinMode(_resetPin, OUTPUT);
-	delay(10);
+	digitalWrite(_resetPin, LOW);
+	delay(15);
+
+	// Swith the pin back to input.  The reset pin is connected to Vcc.  By switching to input, we will let the
+	// reset be pulled back to Vcc.  The chip may not run at the same voltage as the Arduino so we don't control it
+	// with the Arduino.
 	pinMode(_resetPin, INPUT);
 
 	// Give a bit of time to boot up.
@@ -109,7 +116,7 @@ bool VS1000UART::reset(void)
 	// Eat new line.
 	readLine();
 
-	#ifdef DEBUG
+	#if DEBUGLEVEL > 0
 		Serial.println();
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
@@ -118,7 +125,7 @@ bool VS1000UART::reset(void)
 	// "Adafruit FX Sound Board 9/10/14"
 	readLine();
 
-	#ifdef DEBUG
+	#if DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
@@ -131,13 +138,13 @@ bool VS1000UART::reset(void)
 	delay(250);
 
 	readLine();
-	#ifdef DEBUG
+	#if DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
 	readLine();
-	#ifdef DEBUG
+	#if DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
@@ -148,69 +155,54 @@ bool VS1000UART::reset(void)
 	return true;
 }
 
-uint8_t VS1000UART::listFiles()
+uint8_t VS1000UART::listFiles(char fileNames[][12], uint32_t fileSizes[], uint8_t arrayLength)
 {
 	sendCommand(F("L\n"));
 
 	// Reset number of files.  The "_numberOfFiles" is used in the function to index in to the "_fileNames"
 	// and "_fileSizes" array.  Therefore, the number of filex must be incremented after all the other work is done
 	// since the number of files is one less than the index of the file in the array (arrays are zero based).
-	_numberOfFiles = 0;
+	uint8_t numberOfFiles = 0;
 
-	while (_chipStream->readBytesUntil('\n', _lineBuffer, LINE_BUFFER_SIZE))
+	// Loop so long as were are getting new lines back and we haven't exceded our file limit.  The readLine function will return
+	// a zero when it does not read anything.
+	while (readLine() && numberOfFiles < arrayLength)
 	{
-		// Copy over the file name.
-		memcpy(_fileNames[_numberOfFiles], _lineBuffer, 12);
-		_fileNames[_numberOfFiles][11] = 0;
+		// File names are 8.3 without the separating dot.
+		// Line returned is composed of file name, tab, zero padded right justified file size.
+		// Example: 04LATCHWAV	0000051892
+		// [0]	- Name start.
+		// [10]	- Last name character.
+		// [11]	- Tab.
+		// [12]	- First size digit.
+		// [21]	- Last size digit.
+		// Copy over the file name.  Then terminate the string in the twelveth character (position [11]).
+		memcpy(fileNames[numberOfFiles], _lineBuffer, 11);
+		fileNames[numberOfFiles][11] = 0;
 
-		// Parse out the file size after the name + tab.
-		_fileSizes[_numberOfFiles] = 0;
-		for (uint8_t i = 0; i < 16; i++)
+		// Parse out the file size after the name + tab (tab is 12th character ).
+		fileSizes[numberOfFiles] = 0;
+		for (uint8_t i = 12; i < 22; i++)
 		{
-			char character = _lineBuffer[12 + i];
+			char character = _lineBuffer[i];
 
+			// This shouldn't be needed unless garabage got transmitted.
 			if (!isdigit(character))
 			{
 				break;
 			}
 
-			_fileSizes[_numberOfFiles] *= 10;
-			_fileSizes[_numberOfFiles] += atoi(&character);
+			// Essentially, this moves the decimal place and adds in the new digit read.  The file size is right justified, but the
+			// left is padded with zeros, so the file size will just be zero until we hit the first significant digit.
+			fileSizes[numberOfFiles] *= 10;
+			fileSizes[numberOfFiles] += atoi(&character);
 		}
 
 		// Now that we are done with the work, we increment the counter.  Don't do this sooner as it is used to index the other arrays.
-		_numberOfFiles++;
-
-		// Make sure we don't over run the ends of our arrays.
-		if (_numberOfFiles >= MAXFILES)
-		{
-			break;
-		}
+		numberOfFiles++;
 	}
 
-	return _numberOfFiles;
-}
-
-char* VS1000UART::fileName(uint8_t fileNumber)
-{
-	// Make sure the parameter is within bounds.
-	if (fileNumber >= _numberOfFiles)
-	{
-		return NULL;
-	}
-
-	return _fileNames[fileNumber];
-}
-
-uint32_t VS1000UART::fileSize(uint8_t fileNumber)
-{
-	// Make sure the parameter is within bounds.
-	if (fileNumber >= _numberOfFiles)
-	{
-		return 0;
-	}
-
-	return _fileSizes[fileNumber];
+	return numberOfFiles;
 }
 
 bool VS1000UART::playFile(uint8_t fileNumber)
@@ -379,10 +371,16 @@ bool VS1000UART::stopPlay()
 bool VS1000UART::playTime(uint32_t* current, uint32_t* total)
 {
 	sendCommand(F("t"));
-	
+
 	readLine();
+
 	if (strlen(_lineBuffer) != 12)
 	{
+		// There seems to be a bug in the firmware.  If you call to playTime when a track is not playing, then call to list files the list files command fails.
+		// It's not known if the bug is from Adafruit or VSI.  This command is not in the VSI1000 data sheet, so it's either undocumented or added by Adafruit.
+		// As a work around, we can send a new line character and clear the buffer.
+		sendCommand(F("\n"));
+		readLine();
 		return false;
 	}
 
@@ -463,6 +461,13 @@ int VS1000UART::readLine()
 	{
 		_chipStream->read();
 	}
+
+	#if DEBUGLEVEL > 1
+		Serial.print(F("Line buffer\tbits: "));
+		Serial.print(x);
+		Serial.print(F("\tvalue: "));
+		Serial.println(_lineBuffer);
+	#endif
 
 	// The number of characters placed in the buffer (0 means no valid data found).
 	return x;

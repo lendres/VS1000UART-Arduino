@@ -39,23 +39,18 @@
 #include <SoftwareSerial.h>
 #include "VS1000UART.h"
 
-// Choose any two pins that can be used with SoftwareSerial to RX & TX.
-#define SFX_TX 5
-#define SFX_RX 6
+// Arduino pins that can be used with SoftwareSerial.
+#define ARDUINO_PIN_RX_FROM_AUDIO_TX	5
+#define ARDUINO_PIN_TX_TO_AUDIO_RX		6
 
 // Connect to the RST pin on the Sound Board.
-#define SFX_RST 4
-
-// Uncomment for additional output messages.
-#define DEBUGOUTPUT
-
-// You can also monitor the ACT pin for when audio is playing.
+#define ARDUINO_PIN_FOR_AUDIO_RESET		4
 
 // We'll be using software serial.
-SoftwareSerial	_softwareSerial				= SoftwareSerial(SFX_TX, SFX_RX);
+SoftwareSerial	_softwareSerial				= SoftwareSerial(ARDUINO_PIN_RX_FROM_AUDIO_TX, ARDUINO_PIN_TX_TO_AUDIO_RX);
 
 // Pass the software serial to the audio class, the second argument is the debug port (not used really) and the third arg is the reset pin.
-VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, SFX_RST);
+VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, ARDUINO_PIN_FOR_AUDIO_RESET);
 
 // Variable to store text sent by user.
 #define BUFFERSIZE 20
@@ -63,9 +58,10 @@ char 			_lineBuffer[BUFFERSIZE];
 
 void setup()
 {
-	Serial.begin(9600);
-
-	// Software serial at 9600 baud.  Must call "begin" on serial stream before VS1000UART.
+	// You don't seem to be able to run the serial monitor at the same speed as the communication with the chip so make sure the two baud
+	// rates are different.
+	// Must call "begin" on serial stream before VS1000UART.
+	Serial.begin(115200);
 	_softwareSerial.begin(9600);
 	_vsUart.begin();
 
@@ -135,7 +131,12 @@ void runCommand(char command)
 
 		case 'L':
 		{
-			uint8_t numberOfFiles = _vsUart.listFiles();
+			uint8_t 	arrayLength		= 25;
+
+			char 		fileNames[arrayLength][12];
+			uint32_t	fileSizes[arrayLength];
+
+			uint8_t		numberOfFiles	= _vsUart.listFiles(fileNames, fileSizes, arrayLength);
 
 			if (numberOfFiles > 0)
 			{
@@ -149,9 +150,9 @@ void runCommand(char command)
 				{
 					Serial.print(i);
 					Serial.print(F("\tname: "));
-					Serial.print(_vsUart.fileName(i));
+					Serial.print(fileNames[i]);
 					Serial.print(F("\tsize: "));
-					Serial.println(_vsUart.fileSize(i));
+					Serial.println(fileSizes[i]);
 				}
 				Serial.println(F("========================"));
 			}
@@ -293,18 +294,28 @@ void runCommand(char command)
 
 		case 'S':
 		{
-			Serial.print(F("Track size (bytes remaining/total): "));
-			uint32_t remain = 0;
-			uint32_t total = 0;
-			if (!_vsUart.fileSize(&remain, &total))
+			uint32_t remain	= 0;
+			uint32_t total	= 0;
+			if (_vsUart.fileSize(&remain, &total))
+			{
+				Serial.print(F("Track size (bytes remaining/total): "));
+				Serial.print(remain);
+				Serial.print("/");
+				Serial.println(total);
+			}
+			else
 			{
 				Serial.println(F("Failed to query"));
 			}
-			Serial.print(remain);
-			Serial.print("/");
-			Serial.println(total);
 			break;
 		}
+
+		case 'C':
+		{
+			
+			break;
+		}
+
 
 		default:
 		{

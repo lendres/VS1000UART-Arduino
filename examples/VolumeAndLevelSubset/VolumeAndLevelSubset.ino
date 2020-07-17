@@ -25,25 +25,27 @@
 #include <SoftwareSerial.h>
 #include "VS1000UART.h"
 
-// Choose any two pins that can be used with SoftwareSerial to RX & TX.
-#define SFX_TX 5
-#define SFX_RX 6
+// Arduino pins that can be used with SoftwareSerial.
+#define ARDUINO_PIN_RX_FROM_AUDIO_TX	5
+#define ARDUINO_PIN_TX_TO_AUDIO_RX		6
 
 // Connect to the RST pin on the Sound Board.
-#define SFX_RST 4
+#define ARDUINO_PIN_FOR_AUDIO_RESET		4
 
 // We'll be using software serial.
-SoftwareSerial	_softwareSerial(SFX_TX, SFX_RX);
+SoftwareSerial	_softwareSerial				= SoftwareSerial(ARDUINO_PIN_RX_FROM_AUDIO_TX, ARDUINO_PIN_TX_TO_AUDIO_RX);
 
-// Pass the software serial to the audio class and the second argument is the reset pin number.
-VS1000UART 		_vsUart(&_softwareSerial, SFX_RST);
+// Pass the software serial to the audio class, the second argument is the debug port (not used really) and the third arg is the reset pin.
+VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, ARDUINO_PIN_FOR_AUDIO_RESET);
 
 void setup()
 {
-	Serial.begin(9600);
-
-	// Software serial at 9600 baud.  Must call "begin" on serial stream before VS1000UART.
+	// You don't seem to be able to run the serial monitor at the same speed as the communication with the chip so make sure the two baud
+	// rates are different.
+	// Must call "begin" on serial stream before VS1000UART.
+	Serial.begin(115200);
 	_softwareSerial.begin(9600);
+	_vsUart.begin();
 
 	// Set up the levels we want to use.
 	// This sets the lowest level to 1 instead of 0.

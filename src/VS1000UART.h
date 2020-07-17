@@ -18,6 +18,18 @@
 		Automatically goes to a specified volume level.  This allows setting the volume explicitly to a specified level.
 	- Added persistent volume.
 		Allows saving the set volume level to the Arduinos EEPROM memory and having it restored on start up.
+	- Added debugging levels for printing output.
+
+	Bug fixes and other improvements:
+	- More comments to explain code and document behavior.
+	- Consistent use of F() macro to reduce RAM used.
+	- Getting track/play time while not playing broke the list files command.  Implemented a work around, but problem is in firmware.
+	- Sets the reset pin to input in the begin function and rearrange calls in the reset.  This *seems* to stabilize behavior somewhat.
+	- Much, much better code resuse.
+	- Elimination of unused code.
+	- Removed storage of file names, file sizes, and number of files.  This was only used to return names and sizes for the example created by Adafruit.  By
+		having the storage arrays passed into the list files function, they can be removed from the class and use less memory when not in use.
+	- Code style far more consistent and readable.
 */
 
 /*!
@@ -52,14 +64,17 @@
 #include <Arduino.h>
 #include <EEPROMex.h>
 
-#define DEBUG
+// Debugging output to the serial monitor.  Set the value to specify the amount of messages.
+// 0 - No messages.
+// 1 - Basic messages (boot up).
+// 2 - Additional messages (line buffer).
+#define DEBUGLEVEL			0
 
-#define LINE_BUFFER_SIZE 	80		//!< Size of the line buffer.
-#define MAXFILES 			25		//!< Max number of files.
+#define LINE_BUFFER_SIZE 	80					//!< Size of the line buffer.
 
 #define MINVOLUME			0
 #define MAXVOLUME			204
-#define VOLUMEINCREMENT		MAXVOLUME / 10
+#define VOLUMEINCREMENT		MAXVOLUME / 10.0
 
 /// \brief Class that stores the state and functions of the soundboard object.
 class VS1000UART
@@ -83,13 +98,13 @@ class VS1000UART
 
 	// Constructors.
 	public:
-		/// \brief Constructor.
-		/// \param chipStream Pointer to the Serial stream.
+		/// \brief Constructor that lets you provide your own serial communicate stream.
+		/// \param chipStream Pointer to the serial stream used to communicate with the chip.
 		/// \param resetPin Reset pin.
 		VS1000UART(Stream* chipStream, int8_t resetPin);
 
-		/// \brief Constructor.
-		/// \param chipStream Pointer to the Serial stream.
+		/// \brief Same as previous, but can save and restore the volume.
+		/// \param chipStream Pointer to the serial stream used to communicate with the chip.
 		/// \param resetPin Reset pin.
 		/// \param memoryAddress Memory address to save volume level.
 		VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress);
@@ -121,18 +136,9 @@ class VS1000UART
 		bool reset();
 
 		/// \brief Query the board for the # of files and names/sizes.
-		/// \return Returns the information about the files.
-		uint8_t listFiles();
-
-		/// \brief Returns the file name.
-		/// \param n Id of the file.
-		/// \return Returns the file name.
-		char* fileName(uint8_t n);
-
-		/// \brief Returns the size of the file.
-		/// \param n id of the file.
-		/// \return Returns the file size.
-		uint32_t fileSize(uint8_t n);
+		/// \return Returns Number of files.
+		// uint8_t listFiles();
+		uint8_t listFiles(char fileNames[][12], uint32_t fileSizes[], uint8_t arrayLength);
 
 		/// \brief Raises the volume.
 		/// \return Returns the current volume.
@@ -244,11 +250,6 @@ class VS1000UART
 
 		int8_t			_resetPin;
 		char			_lineBuffer[LINE_BUFFER_SIZE];
-
-		// File name & size caching.
-		uint8_t			_numberOfFiles;
-		char			_fileNames[MAXFILES][12];
-		uint32_t		_fileSizes[MAXFILES];
 
 		// Volume.
 		uint8_t			_minimumVolume;
