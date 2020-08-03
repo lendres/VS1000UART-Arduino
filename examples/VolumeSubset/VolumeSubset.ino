@@ -39,20 +39,17 @@ VS1000UART 		_vsUart 					= VS1000UART(&_softwareSerial, ARDUINO_PIN_FOR_AUDIO_R
 
 void setup()
 {
-	// You don't seem to be able to run the serial monitor at the same speed as the communication with the chip so make sure the two baud
-	// rates are different.
-	// Must call "begin" on serial stream before VS1000UART.
-	Serial.begin(115200);
-	_softwareSerial.begin(9600);
-	_vsUart.begin();
-
 	// Set the minimum volume used.
 	_vsUart.setMinimumVolume(90);
 	
 	// Set the maximum volume used.
 	_vsUart.setMaximumVolume(190);
 
-	// Call begin on the VSUART1000 to run its start up.
+	// You don't seem to be able to run the serial monitor at the same speed as the communication with the chip so make sure the two baud
+	// rates are different.
+	// Must call "begin" on serial stream before VS1000UART.
+	Serial.begin(115200);
+	_softwareSerial.begin(9600);
 	_vsUart.begin();
 
 	// Restart the aduio to ensure it is in a known state.

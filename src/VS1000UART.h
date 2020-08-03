@@ -68,13 +68,7 @@
 // 0 - No messages.
 // 1 - Basic messages (boot up).
 // 2 - Additional messages (line buffer).
-#define DEBUGLEVEL			0
-
-#define LINE_BUFFER_SIZE 	80					//!< Size of the line buffer.
-
-#define MINVOLUME			0
-#define MAXVOLUME			204
-#define VOLUMEINCREMENT		MAXVOLUME / 10.0
+#define VS1000DEBUGLEVEL	0
 
 /// \brief Class that stores the state and functions of the soundboard object.
 class VS1000UART
@@ -108,6 +102,9 @@ class VS1000UART
 		/// \param resetPin Reset pin.
 		/// \param memoryAddress Memory address to save volume level.
 		VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress);
+
+		/// \brief Destructor.
+		~VS1000UART();
 
 	// Functions to use in setup.
 	public:
@@ -245,21 +242,26 @@ class VS1000UART
 		void saveVolumeToMemory();
 
 	private:
-		// Stream for the chip/board, e.g. SoftwareSerial or Serial1.
-		Stream*			_chipStream;
+		// Constant parameters for configuration.  Encapsulate variables to prevent name conflict.
+		static const uint8_t		_lineBufferSize;
+		static const uint8_t		_chipMinVolume;
+		static const uint8_t		_chipMaxVolume;
 
-		int8_t			_resetPin;
-		char			_lineBuffer[LINE_BUFFER_SIZE];
+		// Stream for the chip/board, e.g. SoftwareSerial or Serial1.
+		Stream*						_chipStream;
+
+		int8_t						_resetPin;
+		char*						_lineBuffer;
 
 		// Volume.
-		uint8_t			_minimumVolume;
-		uint8_t			_maximumVolume;
-		float			_volumeIncrement;
-		VOLUMELEVEL		_minimumLevel;
-		VOLUMELEVEL		_maximumLevel;
-		bool			_persistentVolume;
-		int				_memoryAddress;
-		uint8_t			_volume;
+		uint8_t						_minimumVolume;
+		uint8_t						_maximumVolume;
+		float						_volumeIncrement;
+		VOLUMELEVEL					_minimumLevel;
+		VOLUMELEVEL					_maximumLevel;
+		bool						_persistentVolume;
+		int							_memoryAddress;
+		uint8_t						_volume;
 };
 
 #endif

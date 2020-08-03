@@ -31,32 +31,45 @@
 
 #include "VS1000UART.h"
 
+// Initialize static members.
+const uint8_t		VS1000UART::_lineBufferSize 			= 80;
+const uint8_t		VS1000UART::_chipMinVolume				= 0;
+const uint8_t		VS1000UART::_chipMaxVolume				= 204;
+
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	// _numberOfFiles(0),
-	_minimumVolume(MINVOLUME),
-	_maximumVolume(MAXVOLUME),
-	_volumeIncrement(VOLUMEINCREMENT),
+	_minimumVolume(_chipMinVolume),
+	_maximumVolume(_chipMaxVolume),
+	_volumeIncrement((_maximumVolume - _minimumVolume)/10.0),
 	_minimumLevel(VOLUME0),
 	_maximumLevel(VOLUME10),
 	_persistentVolume(false),
 	_memoryAddress(0)
 {
+	_lineBuffer = new char[_lineBufferSize];
 }
 
 VS1000UART::VS1000UART(Stream* chipStream, int8_t resetPin, int memoryAddress) :
 	_chipStream(chipStream),
 	_resetPin(resetPin),
-	// _numberOfFiles(0),
-	_minimumVolume(MINVOLUME),
-	_maximumVolume(MAXVOLUME),
-	_volumeIncrement(VOLUMEINCREMENT),
+	_minimumVolume(_chipMinVolume),
+	_maximumVolume(_chipMaxVolume),
+	_volumeIncrement((_maximumVolume - _minimumVolume)/10.0),
 	_minimumLevel(VOLUME0),
 	_maximumLevel(VOLUME10),
 	_persistentVolume(true),
 	_memoryAddress(memoryAddress)
 {
+	_lineBuffer = new char[_lineBufferSize];
+}
+
+VS1000UART::~VS1000UART()
+{
+	if (_lineBuffer)
+	{
+		delete[] _lineBuffer;
+	}
 }
 
 void VS1000UART::setMinimumVolume(uint8_t minimumVolume)
@@ -116,7 +129,7 @@ bool VS1000UART::reset()
 	// Eat new line.
 	readLine();
 
-	#if DEBUGLEVEL > 0
+	#if VS1000DEBUGLEVEL > 0
 		Serial.println();
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
@@ -125,7 +138,7 @@ bool VS1000UART::reset()
 	// "Adafruit FX Sound Board 9/10/14"
 	readLine();
 
-	#if DEBUGLEVEL > 0
+	#if VS1000DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
@@ -138,13 +151,13 @@ bool VS1000UART::reset()
 	delay(250);
 
 	readLine();
-	#if DEBUGLEVEL > 0
+	#if VS1000DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
 
 	readLine();
-	#if DEBUGLEVEL > 0
+	#if VS1000DEBUGLEVEL > 0
 		Serial.print(F("Audio chip: "));
 		Serial.println(_lineBuffer);
 	#endif
@@ -453,7 +466,7 @@ void VS1000UART::synchVolumes()
 
 int VS1000UART::readLine()
 {
-	int x 			= _chipStream->readBytesUntil('\n', _lineBuffer, LINE_BUFFER_SIZE);
+	int x 			= _chipStream->readBytesUntil('\n', _lineBuffer, _lineBufferSize);
 	_lineBuffer[x]	= 0;
 
 	// Check for when the new line is followed by a carriage return.
@@ -462,7 +475,7 @@ int VS1000UART::readLine()
 		_chipStream->read();
 	}
 
-	#if DEBUGLEVEL > 1
+	#if VS1000DEBUGLEVEL > 1
 		Serial.print(F("Line buffer\tbits: "));
 		Serial.print(x);
 		Serial.print(F("\tvalue: "));

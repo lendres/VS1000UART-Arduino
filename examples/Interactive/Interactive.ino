@@ -67,7 +67,7 @@ void setup()
 
 	if (!_vsUart.reset())
 	{
-		Serial.println("VS1000 failed to reset.");
+		Serial.println(F("VS1000 failed to reset."));
 
 		// Something went wrong, so we freeze.
 		while (1)
@@ -75,7 +75,7 @@ void setup()
 		}
 	}
 
-	Serial.println("Audio ready.");
+	Serial.println(F("Audio ready."));
 }
 
 void loop()
